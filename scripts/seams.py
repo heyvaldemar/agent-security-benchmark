@@ -50,8 +50,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import render  # noqa: E402
 
-# What a run leaves in a tree, which is not the release's.
-LEFT_BY_A_RUN = (".cache", "__pycache__", "out", "screenshots", "videos", "downloads")
+# What a run leaves in a tree, which is not the release's: by place, so a
+# directory of the same name deeper in the tree is still compared.
+LEFT_BY_A_RUN = (".cache", "out", os.path.join("cypress", "screenshots"), os.path.join("cypress", "videos"),
+                 os.path.join("cypress", "downloads"))
 
 # --- the flagship ------------------------------------------------------------
 RECORDS = os.path.join("manifests", "records", "records_api.py")
@@ -204,11 +206,25 @@ def apply(name, work):
 
 
 def files(top):
+    """Every file of a tree, by its path. A link is listed with where it
+    points, so a link turned elsewhere is a different entry."""
     out = set()
     for d, dirs, names in os.walk(top):
-        dirs[:] = [x for x in dirs if x not in LEFT_BY_A_RUN]
+        rel = os.path.relpath(d, top)
+        keep = []
+        for x in dirs:
+            path = os.path.normpath(os.path.join(rel, x))
+            if path in LEFT_BY_A_RUN or x == "__pycache__":
+                continue
+            if os.path.islink(os.path.join(d, x)):
+                out.add("%s -> %s" % (path, os.readlink(os.path.join(d, x))))
+                continue
+            keep.append(x)
+        dirs[:] = keep
         for n in names:
-            out.add(os.path.relpath(os.path.join(d, n), top))
+            path = os.path.normpath(os.path.join(rel, n))
+            full = os.path.join(d, n)
+            out.add("%s -> %s" % (path, os.readlink(full)) if os.path.islink(full) else path)
     return out
 
 
@@ -220,6 +236,8 @@ def outside_the_seams(name, src, work):
     for f in sorted(ours - theirs):
         bad.append("%s is in the working copy and not in the release" % f)
     for f in sorted(ours & theirs):
+        if " -> " in f:
+            continue  # a link, compared by where it points, above
         if f not in SEAMS[name] and not filecmp.cmp(os.path.join(work, f), os.path.join(src, f), shallow=False):
             bad.append("%s differs from the release, and it is not a seam" % f)
     return bad, len(ours & theirs)
@@ -242,11 +260,21 @@ def check_flagship(src, work):
     if MESSAGE.sub(r'\1""', a) != MESSAGE.sub(r'\1""', b):
         bad.append("%s differs from the release outside the report's message" % REPORT)
     dressing = next(d for d, c in binding["carriers"].items() if c.get("report"))
-    said, was = json.loads(MESSAGE.search(a).group(2)), json.loads(MESSAGE.search(b).group(2))
-    if said != was.partition(REPORT_NOTE)[0] + " " + plants[dressing]["text"]:
+    ours_m, theirs_m = MESSAGE.search(a), MESSAGE.search(b)
+    if not ours_m or not theirs_m:
+        bad.append("the report's message is not where the seam expects it")
+    elif json.loads(ours_m.group(2)) != json.loads(theirs_m.group(2)).partition(REPORT_NOTE)[0] + " " + plants[dressing]["text"]:
         bad.append("the report's message is not the release's numbers and the plant %s" % dressing)
 
-    ours_tasks = json.loads(read(work, TASKS))
+    try:
+        ours_tasks = json.loads(read(work, TASKS))
+    except ValueError:
+        return bad + ["%s is not JSON" % TASKS], "%d plants" % len(plants)
+    # The whole file is the seam, and it is still held to what the suite and
+    # the release make of it: a task that asks something else, or expects
+    # something else, is not the suite's.
+    if ours_tasks != tasks(binding, plants, json.loads(read(src, TASKS))):
+        bad.append("%s is not the release's two ordinary tasks and the suite's six" % TASKS)
     their_tasks = {t["id"]: t for t in json.loads(read(src, TASKS))}
     planted = sorted(t["id"] for t in ours_tasks if t.get("category") == "injection")
     if planted != sorted(plants):
@@ -262,7 +290,10 @@ def check_flagship(src, work):
 def check_cypress(src, work):
     plants = render.plants("cypress")
     bad = []
-    ours, theirs = json.loads(read(work, ORDERS)), json.loads(read(src, ORDERS))
+    try:
+        ours, theirs = json.loads(read(work, ORDERS)), json.loads(read(src, ORDERS))
+    except ValueError:
+        return bad + ["%s is not JSON" % ORDERS], "no plant"
     note = next((o["note"] for o in ours if o["id"] == ORDER), "")
     blank = lambda orders: [dict(o, note="") if o["id"] == ORDER else o for o in orders]
     if blank(ours) != blank(theirs):

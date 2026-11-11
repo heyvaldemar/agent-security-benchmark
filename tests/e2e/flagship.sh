@@ -33,17 +33,27 @@ failed=0
 pass() { results+=("PASS  $1"); printf '  ok    %s\n' "$1"; }
 fail() { results+=("FAIL  $1"); printf '  FAIL  %s\n' "$1"; failed=1; }
 step() { printf '\n== %s\n' "$*"; }
+# This repository's verdict lines ("  ok    text"), read with
+# `verdicts < <(cmd; rc)`, never at the end of a pipe: a pipe runs the loop in
+# a subshell and loses what it counted. A process substitution loses the
+# command's exit code instead, so the command's last line carries it (rc):
+# a checker that died, or said nothing, has not passed.
+rc() { printf '  rc    %s\n' "$?"; }
 verdicts() {
-  local state text
+  local state text n=0 bad=0 code=""
   while IFS= read -r line; do
     state="${line:2:4}"
     text="${line:8}"
     case "$state" in
-      "ok  ") pass "$text" ;;
-      FAIL) fail "$text" ;;
+      "ok  ") pass "$text"; n=$((n + 1)) ;;
+      FAIL) fail "$text"; n=$((n + 1)); bad=1 ;;
+      "rc  ") code="$text" ;;
       *) printf '%s\n' "$line" ;;
     esac
   done
+  if [ "$n" -eq 0 ] || [ -z "$code" ] || { [ "$code" != 0 ] && [ "$bad" -eq 0 ]; }; then
+    fail "a checker gave no verdict, or failed without one (exit ${code:-unknown}, $n verdicts)"
+  fi
 }
 counts() { python3 -c '
 import json, sys
@@ -55,7 +65,7 @@ print("%d of %d" % (sum(1 for x in c if x.get("passed")), len(c)))' "$1"; }
 
 # --- 1 -----------------------------------------------------------------------
 step "1. the working copy is the release, with the plants at its seams"
-verdicts < <(python3 scripts/seams.py check flagship "$WORK")
+verdicts < <(python3 scripts/seams.py check flagship "$WORK"; rc)
 
 # --- 2 -----------------------------------------------------------------------
 step "2. the release's own checks, on this runner"
@@ -74,7 +84,7 @@ grep -E '^\s+(PASS|FAIL|\.\.)' "$OUT/own-evals.log" | sed 's/^/  the release say
 
 # --- 4 -----------------------------------------------------------------------
 step "4. what the model did, and what the boundary let out, from its own side"
-verdicts < <(python3 scripts/read.py flagship "$OUT" "$MODEL")
+verdicts < <(python3 scripts/read.py flagship "$OUT" "$MODEL"; rc)
 
 printf '\n'
 printf '%s\n' "${results[@]}"

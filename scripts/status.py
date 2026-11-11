@@ -104,9 +104,12 @@ def record(repo, run_id, keep=None):
                 # the legs of all of them.
                 part = json.loads(z.read(name))
                 if results is None:
-                    results = part
-                else:
-                    results["legs"] += part.get("legs", [])
+                    results = dict(part, legs=[])
+                # A job run again uploads its leg again: the later one stands.
+                held = {(x["boundary"], x["model"]): x for x in results["legs"]}
+                for x in part.get("legs", []):
+                    held[(x["boundary"], x["model"])] = x
+                results["legs"] = [held[k] for k in sorted(held)]
             elif base.startswith("e2e-results-") and base.endswith(".json"):
                 legs.append(json.loads(z.read(name)))
     return results, legs
@@ -123,29 +126,35 @@ def windows(counted):
     for run, results in counted:
         for leg in results.get("legs", []):
             b, m, rec = leg["boundary"], leg["model"], leg["boundary_record"]
-            w = boundaries.setdefault(b, {"boundary": b, "releases": [], "runs": set(), "attempts": 0,
-                                          "tried_to_leave": 0, "reached_outside": 0, "tried_to_reach": 0,
-                                          "stopped_by": {}, "controls_heard": 0, "legs": 0})
-            tag = (leg.get("source") or {}).get("tag")
-            if tag and tag not in w["releases"]:
-                w["releases"].append(tag)
-            w["runs"].add(run["id"])
-            w["legs"] += 1
-            w["attempts"] += len(leg["attempts"])
-            w["tried_to_leave"] += rec["tried_to_leave"]
-            w["reached_outside"] += rec["reached_outside"]
-            w["tried_to_reach"] += rec["tried_to_reach"]
-            w["controls_heard"] += bool(rec["control_heard"])
-            for layer, n in rec["stopped_by"].items():
-                w["stopped_by"][layer] = w["stopped_by"].get(layer, 0) + n
             acted = sum(a["acted"] for a in leg["attempts"])
+            # A boundary's sums are over models with weights, as the README's
+            # table is. The stand-ins have a window of their own below.
+            if m not in STANDINS:
+                w = boundaries.setdefault(b, {"boundary": b, "releases": [], "runs": set(), "attempts": 0,
+                                              "tried_to_leave": 0, "reached_outside": 0, "tried_to_reach": 0,
+                                              "stopped_by": {}, "controls_heard": 0, "legs": 0})
+                tag = (leg.get("source") or {}).get("tag")
+                if tag and tag not in w["releases"]:
+                    w["releases"].append(tag)
+                w["runs"].add(run["id"])
+                w["legs"] += 1
+                w["attempts"] += len(leg["attempts"])
+                w["tried_to_leave"] += rec["tried_to_leave"]
+                w["reached_outside"] += rec["reached_outside"]
+                w["tried_to_reach"] += rec["tried_to_reach"]
+                w["controls_heard"] += bool(rec["control_heard"])
+                for layer, n in rec["stopped_by"].items():
+                    w["stopped_by"][layer] = w["stopped_by"].get(layer, 0) + n
             if m in STANDINS:
                 c = calibration.setdefault(m, {"model": m, "runs": set(), "attempts": 0, "acted": 0,
                                                "runs_read_as_it_is": 0})
                 c["runs"].add(run["id"])
                 c["attempts"] += len(leg["attempts"])
                 c["acted"] += acted
-                c["runs_read_as_it_is"] += acted == (len(leg["attempts"]) if m == "obedient" else 0)
+                # A leg with no attempt was read as nothing, not as it is.
+                c["runs_read_as_it_is"] += bool(leg["attempts"]) and acted == (len(leg["attempts"]) if m == "obedient" else 0)
+                c["tried_to_leave"] = c.get("tried_to_leave", 0) + rec["tried_to_leave"]
+                c["reached_outside"] = c.get("reached_outside", 0) + rec["reached_outside"]
                 door = leg.get("open_door")
                 if door is not None:
                     d = calibration.setdefault("open door", {"model": "open door", "runs": set(), "heard": 0,

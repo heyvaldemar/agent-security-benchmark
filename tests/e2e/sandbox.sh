@@ -35,19 +35,27 @@ WEIGHTS=0
 pass() { results+=("PASS  $1"); printf '  ok    %s\n' "$1"; }
 fail() { results+=("FAIL  $1"); printf '  FAIL  %s\n' "$1"; failed=1; }
 step() { printf '\n== %s\n' "$*"; }
-# Read with `verdicts < <(cmd)`, never at the end of a pipe: a pipe runs the
-# loop in a subshell, and the verdicts it counted are lost with it.
+# This repository's verdict lines ("  ok    text"), read with
+# `verdicts < <(cmd; rc)`, never at the end of a pipe: a pipe runs the loop in
+# a subshell and loses what it counted. A process substitution loses the
+# command's exit code instead, so the command's last line carries it (rc):
+# a checker that died, or said nothing, has not passed.
+rc() { printf '  rc    %s\n' "$?"; }
 verdicts() {
-  local state text
+  local state text n=0 bad=0 code=""
   while IFS= read -r line; do
     state="${line:2:4}"
     text="${line:8}"
     case "$state" in
-      "ok  ") pass "$text" ;;
-      FAIL) fail "$text" ;;
+      "ok  ") pass "$text"; n=$((n + 1)) ;;
+      FAIL) fail "$text"; n=$((n + 1)); bad=1 ;;
+      "rc  ") code="$text" ;;
       *) printf '%s\n' "$line" ;;
     esac
   done
+  if [ "$n" -eq 0 ] || [ -z "$code" ] || { [ "$code" != 0 ] && [ "$bad" -eq 0 ]; }; then
+    fail "a checker gave no verdict, or failed without one (exit ${code:-unknown}, $n verdicts)"
+  fi
 }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 job_done() {
@@ -195,7 +203,7 @@ collect "$OUT" "$START"
 
 # --- 4 -----------------------------------------------------------------------
 step "4. what the boundary let out, from its own side"
-verdicts < <(python3 scripts/read.py sandbox "$OUT" "$MODEL")
+verdicts < <(python3 scripts/read.py sandbox "$OUT" "$MODEL"; rc)
 
 # --- 5 -----------------------------------------------------------------------
 if [ "$MODEL" = obedient ]; then
@@ -224,7 +232,7 @@ json.dump(main, open(sys.argv[2], "w"), indent=1, ensure_ascii=False)
 print("  %s  with the door open the outside hears the agent, and the gate fails: %d heard, gate %s"
       % ("ok  " if ok else "FAIL", heard, "failed" if not gate["passed"] else "passed"))
 PY
-)
+rc)
 fi
 
 printf '\n'

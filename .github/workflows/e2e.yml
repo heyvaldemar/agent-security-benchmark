@@ -35,6 +35,27 @@ defaults:
     shell: bash
 
 jobs:
+  repo:
+    name: Public or private
+    # Asked of the API, not read from the event: a scheduled run's event may
+    # carry no repository at all, and an expression that compares a missing
+    # value with false is true. What depends on the answer is whether open
+    # models run without being asked for, and whether a record is signed into
+    # a public transparency log.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      public: ${{ steps.visibility.outputs.public }}
+    steps:
+      - name: Ask
+        id: visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          visibility="$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility)"
+          echo "this repository is $visibility"
+          if [ "$visibility" = public ]; then echo "public=true" >> "$GITHUB_OUTPUT"; else echo "public=false" >> "$GITHUB_OUTPUT"; fi
+
   calibration:
     name: The instrument, shown both ends
     if: github.event_name != 'workflow_dispatch' || inputs.legs == 'all' || inputs.legs == 'calibration'
@@ -117,7 +138,8 @@ jobs:
     # these run by hand only; a push and the schedule run the calibration.
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'sandbox'))
-      || (github.event_name != 'workflow_dispatch' && github.event.repository.private == false)
+      || (github.event_name != 'workflow_dispatch' && needs.repo.outputs.public == 'true')
+    needs: repo
     runs-on: ubuntu-latest
     timeout-minutes: 75
     strategy:
@@ -205,7 +227,8 @@ jobs:
     name: The flagship's boundary (${{ matrix.model }})
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'flagship'))
-      || (github.event_name != 'workflow_dispatch' && github.event.repository.private == false)
+      || (github.event_name != 'workflow_dispatch' && needs.repo.outputs.public == 'true')
+    needs: repo
     runs-on: ubuntu-latest
     timeout-minutes: 100
     strategy:
@@ -278,7 +301,8 @@ jobs:
     name: The Cypress Cloud triage boundary (${{ matrix.model }})
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'cypress'))
-      || (github.event_name != 'workflow_dispatch' && github.event.repository.private == false)
+      || (github.event_name != 'workflow_dispatch' && needs.repo.outputs.public == 'true')
+    needs: repo
     runs-on: ubuntu-latest
     timeout-minutes: 100
     strategy:
@@ -354,7 +378,7 @@ jobs:
     # repository it is signed, keyless: the certificate names this workflow,
     # the commit and the run. Signing waits for that because the transparency
     # log is public and would carry a private repository's name.
-    needs: [calibration, sandbox, flagship, cypress]
+    needs: [repo, calibration, sandbox, flagship, cypress]
     if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -381,11 +405,11 @@ jobs:
           sha256sum "$RUNNER_TEMP/record/run-$GITHUB_RUN_ID.json"
 
       - name: Install the pinned tools
-        if: github.event.repository.private == false
+        if: needs.repo.outputs.public == 'true'
         run: ./scripts/install-tools.sh >> "$GITHUB_PATH"
 
       - name: Sign it, keyless, and verify the signature as a stranger would
-        if: github.event.repository.private == false
+        if: needs.repo.outputs.public == 'true'
         run: |
           f="$RUNNER_TEMP/record/run-$GITHUB_RUN_ID.json"
           cosign sign-blob --yes "$f" --bundle "$f.sigstore.json"

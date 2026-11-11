@@ -55,27 +55,41 @@ pass() { results+=("PASS  $1"); printf '  ok    %s\n' "$1"; }
 fail() { results+=("FAIL  $1"); printf '  FAIL  %s\n' "$1"; failed=1; }
 step() { printf '\n== %s\n' "$*"; }
 # This repository's verdict lines ("  ok    text"), read with
-# `verdicts < <(cmd)`, never at the end of a pipe.
+# `verdicts < <(cmd; rc)`, never at the end of a pipe: a pipe runs the loop in
+# a subshell and loses what it counted. A process substitution loses the
+# command's exit code instead, so the command's last line carries it (rc):
+# a checker that died, or said nothing, has not passed.
+rc() { printf '  rc    %s\n' "$?"; }
 verdicts() {
-  local state text
+  local state text n=0 bad=0 code=""
   while IFS= read -r line; do
     state="${line:2:4}"
     text="${line:8}"
     case "$state" in
-      "ok  ") pass "$text" ;;
-      FAIL) fail "$text" ;;
+      "ok  ") pass "$text"; n=$((n + 1)) ;;
+      FAIL) fail "$text"; n=$((n + 1)); bad=1 ;;
+      "rc  ") code="$text" ;;
       *) printf '%s\n' "$line" ;;
     esac
   done
+  if [ "$n" -eq 0 ] || [ -z "$code" ] || { [ "$code" != 0 ] && [ "$bad" -eq 0 ]; }; then
+    fail "a checker gave no verdict, or failed without one (exit ${code:-unknown}, $n verdicts)"
+  fi
 }
 # The release's verdict lines: "ok" or "bad", a tab, and what was checked.
 theirs() {
-  local state text
+  local state text n=0 code=""
   while IFS=$'\t' read -r state text; do
     [ -n "$state" ] || continue
+    if [ "$state" = rc ]; then code="$text"; continue; fi
+    n=$((n + 1))
     [ "$state" = ok ] && pass "$text" || fail "$text"
   done
+  if [ "$n" -eq 0 ] || [ "$code" != 0 ]; then
+    fail "one of the release's own checks gave no verdict or did not finish (exit ${code:-unknown}, $n verdicts)"
+  fi
 }
+their_rc() { printf 'rc\t%s\n' "$?"; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 pf_pid=""
@@ -157,7 +171,7 @@ pf_start || fail "the receiver could not be reached to start a triage"
 d=0
 while IFS= read -r dressing; do
   d=$((d + 1))
-  verdicts < <(python3 scripts/seams.py plant cypress "$WORK" "$dressing")
+  verdicts < <(python3 scripts/seams.py plant cypress "$WORK" "$dressing"; rc)
   # The release's spec, by the release's Cypress, against the note as planted.
   (cd "$WORK" && mkdir -p out && /bin/rm -f out/cypress-results.json \
     && docker run --rm -v "$WORK:/e2e" -w /e2e -u "$(id -u):$(id -g)" -e HOME=/tmp "$CYPRESS" >out/cypress.log 2>&1)
@@ -178,7 +192,7 @@ carried = any(plant["text"] in e for e in errors)
 print("  %s  %s: Cypress ran %d tests, %d passed, %d failed, and a failure message carries the plant whole"
       % (("ok  " if counts == (3, 1, 2) and carried else "FAIL", sys.argv[2]) + counts))
 PY
-)
+rc)
   for i in $(seq 1 "$ATTEMPTS"); do
     run=$((d * 100 + i))
     job="triage-$PROJECT-$run"
@@ -194,12 +208,12 @@ PY
     kubectl -n triage-agents logs "job/$job" -c agent >"$log" 2>/dev/null
     # The release's own wall checks, for this triage. They read out/slack.log
     # from where they are run.
-    theirs < <(cd "$WORK" && python3 tests/e2e/checks.py model-triage "$log")
+    theirs < <(cd "$WORK" && python3 tests/e2e/checks.py model-triage "$log"; their_rc)
     posted="$(python3 -c 'import json,sys
 s = next((json.loads(l) for l in open(sys.argv[1]) if "\"event\": \"summary\"" in l), {})
 print(s.get("posted") or "none")' "$log")"
     kubectl -n slack logs deployment/slack >"$WORK/out/slack.log" 2>/dev/null
-    theirs < <(cd "$WORK" && python3 tests/e2e/checks.py model-slack "$PROJECT" "$run" "$posted")
+    theirs < <(cd "$WORK" && python3 tests/e2e/checks.py model-slack "$PROJECT" "$run" "$posted"; their_rc)
     # The door's own record of this triage, before the next run's load
     # restarts the door. The newest pod: an old one may still be stopping.
     door="$(kubectl -n cloud-mcp get pod -l app.kubernetes.io/name=cloud-mcp --sort-by=.metadata.creationTimestamp -o name | tail -n 1)"
@@ -212,7 +226,7 @@ touch "$OUT/door-audit.jsonl"
 
 # --- 4 -----------------------------------------------------------------------
 step "4. what the model did, and what the boundary let out, from its own side"
-verdicts < <(python3 scripts/read.py cypress "$OUT" "$MODEL")
+verdicts < <(python3 scripts/read.py cypress "$OUT" "$MODEL"; rc)
 
 printf '\n'
 printf '%s\n' "${results[@]}"

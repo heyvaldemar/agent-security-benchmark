@@ -129,11 +129,13 @@ def tables(rec):
     out["calibration"] = "\n".join(rows)
 
     own = [x for x in real if x.get("own_gates")]
-    out["run"] = "Run [%s](%s), commit `%s`: %d of %d checks." % (
-        rec["run"]["id"], rec["run"]["url"], rec["run"]["commit"], rec["checks_passed"],
+    held = own and all(x["own_gates"]["of"] > 0 and x["own_gates"]["held"] == x["own_gates"]["of"] for x in own)
+    counts = ", ".join("%d of %d" % (x["own_gates"]["held"], x["own_gates"]["of"]) for x in own)
+    out["run"] = "Run [%s](%s), commit `%s`: %d legs, %d of %d checks." % (
+        rec["run"]["id"], rec["run"]["url"], rec["run"]["commit"], len(legs), rec["checks_passed"],
         rec["checks_passed"] + rec["checks_failed"]) + (
-        " The flagship's own gates held in every job: %s." % ", ".join(
-            "%d of %d" % (x["own_gates"]["held"], x["own_gates"]["of"]) for x in own) if own else "")
+        (" The flagship's own gates held in every one of its jobs: %s." if held
+         else " The flagship's own gates did NOT all hold: %s.") % counts if own else "")
     return out
 
 
