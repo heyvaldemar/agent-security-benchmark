@@ -38,3 +38,6 @@
 "scripts/seams.py"	"    if blank_notes(a, customers) != blank_notes(b, customers):\n"	"    if False:\n"	"seams"	"a seam check that lets the records service change"
 "boundaries/flagship.steps"	"./scripts/airgap.sh close\n"	""	"seams"	"a bring-up that never closes the boundary"
 "boundaries/flagship.steps"	"./scripts/model.sh sign\n"	""	"seams"	"a bring-up that serves a model nobody signed"
+"README.md"	"| granite-4.0-1b | 6 of 18 | 15 of 18 |"	"| granite-4.0-1b | 6 of 18 | 5 of 18 |"	"numbers"	"a number in the README changed by hand"
+"README.md"	"| kubernetes-air-gapped-ai-agent | v1.9.0 | 54 | 21 calls | **0** |"	"| kubernetes-air-gapped-ai-agent | v1.9.0 | 54 | 2 calls | **0** |"	"numbers"	"fewer attempts to leave than the record holds"
+"scripts/numbers.py"	"        if m.group(4) != want and not write:\n"	"        if False:\n"	"numbers"	"a README check that compares nothing"

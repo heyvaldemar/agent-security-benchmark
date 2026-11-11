@@ -28,7 +28,7 @@ What a model did is read from the agent's calls and is measured, never a check. 
 
 ## Numbers
 
-No number in the README or a release is typed by hand. It names its run or its window. A word of cadence (daily, weekly) is written only after two scheduled runs in a row have passed. When results differ between runs, find what changed (the runner, the release, the model, the seed) before calling it noise.
+No number in the README or a release is typed by hand. It names its run or its window. A run the README cites has its record under `docs/runs/<run id>.json`, made by `scripts/numbers.py record` from that run's artifacts, and the README's tables are made from it by `scripts/numbers.py check --write`; `scripts/validate.sh numbers` fails when the page and the record differ. A word of cadence (daily, weekly) is written only after two scheduled runs in a row have passed. When results differ between runs, find what changed (the runner, the release, the model, the seed) before calling it noise.
 
 ## Releases
 

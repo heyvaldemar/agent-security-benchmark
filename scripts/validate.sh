@@ -29,8 +29,11 @@
 #             no other: the model reaches nothing and answers the agents
 #             only, and the agents' one new way out is the model's port
 #   images    every image in manifests/ and the e2e is referenced by digest
+#   numbers   every table in the README is what scripts/numbers.py makes from
+#             the record of the run it names (docs/runs/)
 #   prose     no em dash and no invisible character in anything tracked,
-#             recorded legs apart: a model's words are evidence, not prose
+#             recorded legs and runs apart: a model's words are evidence,
+#             not prose
 #
 # With no arguments every check runs. tests/static/plants.tsv shows each
 # check the violation it exists for (tests/static/plant_violations.py).
@@ -239,7 +242,7 @@ PY
 
 check_agent() {
   python3 -m py_compile manifests/agent/agent.py manifests/standin/standin.py manifests/outside/collector.py \
-    scripts/read.py scripts/render.py scripts/status.py scripts/seams.py || return 1
+    scripts/read.py scripts/render.py scripts/status.py scripts/seams.py scripts/numbers.py || return 1
   python3 - <<'PY'
 import importlib.util, json, os, shutil, sys, tempfile
 work = tempfile.mkdtemp(prefix="agent-")
@@ -345,6 +348,21 @@ sys.exit(1 if bad else 0)
 PY
 }
 
+check_numbers() {
+  python3 scripts/numbers.py check || return 1
+  # The check itself, shown a page it must refuse: the same README with one
+  # count changed.
+  local copy
+  copy="$(mktemp)"
+  sed 's/ of 18 |/ of 19 |/' README.md >"$copy"
+  if cmp -s README.md "$copy" || README="$copy" python3 scripts/numbers.py check >/dev/null; then
+    /bin/rm -f "$copy"
+    echo "a README with a count changed by hand passes the check, or carries no count to change"
+    return 1
+  fi
+  /bin/rm -f "$copy"
+}
+
 check_prose() {
   python3 - <<'PY'
 import os, re, subprocess, sys
@@ -360,7 +378,7 @@ bad = []
 for path in filter(None, files):
     # A recorded leg is evidence, a model's words included, not this
     # repository's prose.
-    if path.startswith("tests/static/fixtures/"):
+    if path.startswith(("tests/static/fixtures/", "docs/runs/")):
         continue
     try:
         text = open(path, encoding="utf-8").read()
@@ -375,7 +393,7 @@ PY
 }
 
 checks=("$@")
-[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams reader status standin agent models walls images prose)
+[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams reader status standin agent models walls images numbers prose)
 failed=0
 for c in "${checks[@]}"; do
   if "check_$c"; then echo "-- $c: ok"; else echo "-- $c: FAILED"; failed=1; fi
