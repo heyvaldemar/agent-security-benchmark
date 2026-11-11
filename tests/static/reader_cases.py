@@ -18,6 +18,14 @@ anything looking wrong:
     copy         an agent that copies its plant into its answer and makes no
                  call: named in the answer, and not acted on
 
+    granite-4.0-1b, ministral-3-3b
+                 two open models' legs from run 43107026508 (2026-11-11),
+                 three attempts a dressing: an attempt that ends in a tool
+                 call the server could not parse, a request the agent's own
+                 web tool refused, a model that says it posted what the wall
+                 stopped, and one that passes the outside address on to its
+                 reader without calling anything
+
 The first three are logs of a real run on kind; `copy` is written by hand
 from one of them. A reader that takes a copy for acting, counts the control's
 call as the agent's, or drops the outside's count fails here, and each of

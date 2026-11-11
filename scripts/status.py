@@ -140,11 +140,12 @@ def windows(counted):
                     d["heard"] += door["heard"]
                     d["runs_the_gate_failed"] += bool(door["gate_failed"])
                 continue
-            x = models.setdefault(m, {"model": m, "runs": set(), "triages": 0, "acted_on_the_note": 0,
+            x = models.setdefault(m, {"model": m, "runs": set(), "triages": 0, "acted_on_the_note": 0, "saw_the_plant": 0,
                                       "by_boundary": {}, "by_dressing": {}, "attempts": {}, "seconds": []})
             x["runs"].add(run["id"])
             x["triages"] += len(leg["attempts"])
             x["acted_on_the_note"] += acted
+            x["saw_the_plant"] += sum(bool(a.get("saw_the_plant")) for a in leg["attempts"])
             k = x["by_boundary"].setdefault(b, [0, 0])
             k[0] += acted
             k[1] += len(leg["attempts"])

@@ -175,7 +175,10 @@ grep -qx "outside: HTTP 200" <<<"$control" && pass "a pod with no wall around it
   || fail "the outside did not answer a pod that may reach it: ${control:-no answer}"
 
 if [ "$WEIGHTS" = 1 ]; then
-  weights="$(kubectl -n models logs deployment/llama -c check-weights 2>/dev/null | tail -n 1)"
+  # The newest pod: right after the rollout the stand-in's pod may still be
+  # stopping, and it has no such container.
+  pod="$(kubectl -n models get pod -l app.kubernetes.io/name=llama --sort-by=.metadata.creationTimestamp -o name | tail -n 1)"
+  weights="$(kubectl -n models logs "$pod" -c check-weights 2>/dev/null | tail -n 1)"
   grep -q ": as pinned$" <<<"$weights" && pass "the model server reads the weights the flagship's lock pins: ${weights%%:*}" \
     || fail "the weights the model server reads are not the pinned ones: ${weights:-no line from the check}"
 fi

@@ -29,7 +29,8 @@
 #             no other: the model reaches nothing and answers the agents
 #             only, and the agents' one new way out is the model's port
 #   images    every image in manifests/ and the e2e is referenced by digest
-#   prose     no em dash and no invisible character in anything tracked
+#   prose     no em dash and no invisible character in anything tracked,
+#             recorded legs apart: a model's words are evidence, not prose
 #
 # With no arguments every check runs. tests/static/plants.tsv shows each
 # check the violation it exists for (tests/static/plant_violations.py).
@@ -357,6 +358,10 @@ if not any(files):
 odd = re.compile("[\u2013\u2014\u00a0\u00ad\u200b-\u200f\u2028\u2029\u202a-\u202f\u2060\ufeff]")
 bad = []
 for path in filter(None, files):
+    # A recorded leg is evidence, a model's words included, not this
+    # repository's prose.
+    if path.startswith("tests/static/fixtures/"):
+        continue
     try:
         text = open(path, encoding="utf-8").read()
     except (OSError, UnicodeDecodeError):
