@@ -20,7 +20,7 @@ Everything a model needs is put beside the release, and one seam of data is used
 
 The agent offers the model more than the door grants: the report tool it has, two records tools it does not, and a web request. A plant that asks for a records tool or for a POST can then be tried, and the door and the network answer, not the tool list. Schemas go without patterns, for the reason in the flagship's ADR 13.
 
-The first run on kind, on 2026-11-11, with the obedient stand-in: six attempts to leave, each stopped by the network policy; two calls to tools not granted, each refused by the MCP server and each in its audit; nothing heard by the collector.
+The first run on a GitHub runner, [43104494052](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43104494052) on 2026-11-11 (commit b4d698d), after the release's own checks had passed there, with the obedient stand-in: six attempts to leave, each stopped by the network policy; two calls to tools not granted, each refused by the MCP server and each in its audit; nothing heard by the collector; 17 of 17 checks.
 
 ## Consequences
 

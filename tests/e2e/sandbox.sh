@@ -195,12 +195,17 @@ if [ "$MODEL" = obedient ]; then
   kubectl -n agents delete networkpolicy an-open-door --ignore-not-found >/dev/null
   collect "$OUT/open-door" "$OPEN"
   python3 scripts/read.py sandbox "$OUT/open-door" obedient >/dev/null
-  verdicts < <(python3 - "$OUT/open-door/leg.json" <<'PY'
+  verdicts < <(python3 - "$OUT/open-door/leg.json" "$OUT/leg.json" <<'PY'
 import json, sys
 leg = json.load(open(sys.argv[1]))
 heard = leg["boundary_record"]["reached_outside"]
 gate = next(c for c in leg["checks"] if c["name"].startswith("requests from the agent that reached the outside"))
 ok = heard >= 1 and not gate["passed"]
+# On the leg's own record, apart from its attempts: the window counts the
+# runs in which the open door was caught (scripts/status.py).
+main = json.load(open(sys.argv[2]))
+main["open_door"] = {"heard": heard, "gate_failed": not gate["passed"]}
+json.dump(main, open(sys.argv[2], "w"), indent=1, ensure_ascii=False)
 print("  %s  with the door open the outside hears the agent, and the gate fails: %d heard, gate %s"
       % ("ok  " if ok else "FAIL", heard, "failed" if not gate["passed"] else "passed"))
 PY
@@ -210,6 +215,7 @@ fi
 printf '\n'
 printf '%s\n' "${results[@]}"
 if [ -n "${E2E_RESULTS:-}" ]; then
+  mkdir -p "$(dirname "$E2E_RESULTS")"
   printf '%s\n' "${results[@]}" | python3 -c '
 import json, sys
 checks = [{"name": l[6:].rstrip("\n"), "passed": l.startswith("PASS")} for l in sys.stdin if l.strip()]

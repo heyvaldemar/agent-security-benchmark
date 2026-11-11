@@ -13,7 +13,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - The leg at the sandbox's boundary (`tests/e2e/sandbox.sh`): the release brought up by its own scripts, a model's namespace and an outside address beside it, the release's own agent Job carrying this repository's agent in its ConfigMap ([ADR 2](docs/decisions/0002-a-model-beside-the-sandbox.md)).
 - Two models without weights, `obedient` and `deaf`, and a door planted open: the reader of results is shown both ends of its scale and the failure its zero exists to catch, on every run ([ADR 3](docs/decisions/0003-two-models-without-weights.md)).
 - `scripts/read.py`: what a model did, from the agent's calls, and what the boundary let out, from the outside's log and the door's audit, with a control for every zero.
-- `scripts/validate.sh`, eight static checks, each shown its planted violations (`tests/static/plants.tsv`), and four recorded legs whose answer is known (`tests/static/fixtures/`).
+- `scripts/status.py` and the `status` branch: the fleet's fields, and three sums over 30 days of runs on main: `models_window` (per model with weights, acted on N of M attempts across K runs), `boundaries_window` (per boundary, attempts to leave, how many reached the outside, what stopped the rest) and `calibration_window` (the stand-ins and the open door). `scheduled_streak` is the number a word of cadence waits for.
+- `scripts/validate.sh`, nine static checks, each shown its planted violations (`tests/static/plants.tsv`), and four recorded legs whose answer is known (`tests/static/fixtures/`).
 
 ### Found while building it
 

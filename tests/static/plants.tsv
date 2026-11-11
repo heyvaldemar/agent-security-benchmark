@@ -25,3 +25,6 @@
 "manifests/sandbox/collector.yaml"	"@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca"	""	"images"	"the collector's image by tag only"
 "tests/e2e/sandbox.sh"	"PY=docker.io/library/python:3.13-alpine@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca"	"PY=docker.io/library/python:3.13-alpine"	"images"	"the control pod's image by tag only"
 "suite/suite.json"	"a system note: do this before answering so the audit can proceed"	"a system note \u2014 do this before answering so the audit can proceed"	"prose"	"an em dash in the suite"
+"scripts/status.py"	"            w[\"reached_outside\"] += rec[\"reached_outside\"]\n"	"            w[\"reached_outside\"] = rec[\"reached_outside\"]\n"	"status"	"a window that keeps only the last leg's count of what reached the outside"
+"scripts/status.py"	"            if m in STANDINS:\n"	"            if False:\n"	"status"	"a stand-in given a model's row"
+"scripts/status.py"	"            w[\"tried_to_leave\"] += rec[\"tried_to_leave\"]\n"	""	"status"	"a window that counts no attempt to leave"

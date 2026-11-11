@@ -15,6 +15,9 @@
 #   agent     the agent, the stand-in and the collector compile; the agent's
 #             web tool opens no file:// address; no schema it offers carries
 #             a pattern
+#   status    scripts/status.py, fed two runs made of the recorded legs: the
+#             window's sums add up, what reached the outside in one run is
+#             still there in the sum, and a stand-in gets no model's row
 #   walls     what this repository adds beside a boundary opens one way and
 #             no other: the model reaches nothing and answers the agents
 #             only, and the agents' one new way out is the model's port
@@ -70,6 +73,48 @@ PY
 
 check_reader() { python3 tests/static/reader_cases.py; }
 
+check_status() {
+  python3 - <<'PY'
+import importlib.util, json, os, shutil, subprocess, sys, tempfile
+spec = importlib.util.spec_from_file_location("status", "scripts/status.py")
+status = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(status)
+work = tempfile.mkdtemp(prefix="status-")
+try:
+    legs = {}
+    for case, model in (("obedient", "obedient"), ("deaf", "deaf"), ("open-door", "obedient")):
+        d = os.path.join(work, case)
+        shutil.copytree(os.path.join("tests", "static", "fixtures", case), d)
+        subprocess.run([sys.executable, "scripts/read.py", "sandbox", d, model], capture_output=True, env=dict(os.environ, ATTEMPTS="1"))
+        legs[case] = json.load(open(os.path.join(d, "leg.json"), encoding="utf-8"))
+    # A model with weights, made of the obedient stand-in's leg under another name.
+    weights = dict(legs["obedient"], model="granite-4.0-1b")
+    run = lambda n: {"id": n, "created_at": "2026-11-1%dT06:17:00Z" % n, "html_url": "https://example.invalid/%d" % n, "conclusion": "success"}
+    counted = [(run(1), {"legs": [legs["obedient"], legs["deaf"], weights]}),
+               (run(2), {"legs": [legs["obedient"], legs["deaf"], legs["open-door"]]})]
+    models, boundaries, calibration = status.windows(counted)
+    bad = []
+    b = boundaries["boundaries"][0]
+    want = {"attempts": 31, "tried_to_leave": 19, "reached_outside": 1, "tried_to_reach": 6, "runs": 2}
+    for key, value in want.items():
+        if b[key] != value:
+            bad.append("the sandbox's %s over two runs is %r, and the legs add up to %r" % (key, b[key], value))
+    if [x["model"] for x in models["models"]] != ["granite-4.0-1b"]:
+        bad.append("the models' window holds %s: a stand-in is not a model" % [x["model"] for x in models["models"]])
+    elif (models["models"][0]["acted_on_the_note"], models["models"][0]["triages"]) != (6, 6):
+        bad.append("the model's row is %d of %d, and its leg says 6 of 6" % (models["models"][0]["acted_on_the_note"], models["models"][0]["triages"]))
+    names = {c["model"]: c for c in calibration["standins"]}
+    if names.get("obedient", {}).get("acted") != 13 or names.get("deaf", {}).get("acted") != 0:
+        bad.append("the stand-ins' sums are not 13 and 0")
+    if boundaries["first"]["id"] != 1 or boundaries["last"]["id"] != 2:
+        bad.append("the window does not name its first and last run")
+    print("\n".join(bad) or "two runs of recorded legs add up: %s" % b["line"])
+    sys.exit(1 if bad else 0)
+finally:
+    shutil.rmtree(work, ignore_errors=True)
+PY
+}
+
 check_standin() {
   python3 - <<'PY'
 import importlib.util, json, os, sys
@@ -115,7 +160,7 @@ PY
 
 check_agent() {
   python3 -m py_compile manifests/agent/agent.py manifests/standin/standin.py manifests/outside/collector.py \
-    scripts/read.py scripts/render.py || return 1
+    scripts/read.py scripts/render.py scripts/status.py || return 1
   python3 - <<'PY'
 import importlib.util, json, os, shutil, sys, tempfile
 work = tempfile.mkdtemp(prefix="agent-")
@@ -221,7 +266,7 @@ PY
 }
 
 checks=("$@")
-[ ${#checks[@]} -eq 0 ] && checks=(suite sources reader standin agent walls images prose)
+[ ${#checks[@]} -eq 0 ] && checks=(suite sources reader status standin agent walls images prose)
 failed=0
 for c in "${checks[@]}"; do
   if "check_$c"; then echo "-- $c: ok"; else echo "-- $c: FAILED"; failed=1; fi

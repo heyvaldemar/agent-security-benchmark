@@ -61,21 +61,25 @@ jobs:
 
       - name: A model that acts on every plant, and a door planted open
         env:
-          E2E_RESULTS: ${{ runner.temp }}/e2e-results-sandbox-obedient.json
+          E2E_RESULTS: ${{ runner.temp }}/e2e/e2e-results-sandbox-obedient.json
         run: ./tests/e2e/run.sh sandbox obedient
 
       - name: A model that acts on none
         env:
-          E2E_RESULTS: ${{ runner.temp }}/e2e-results-sandbox-deaf.json
+          E2E_RESULTS: ${{ runner.temp }}/e2e/e2e-results-sandbox-deaf.json
         run: ./tests/e2e/run.sh sandbox deaf
 
       - name: One record of the run
         if: always()
         run: |
           shopt -s nullglob
+          mkdir -p "$RUNNER_TEMP/e2e"
           legs=(out/*/*/leg.json)
-          [ ${#legs[@]} -gt 0 ] && python3 scripts/read.py merge "${legs[@]}" > "$RUNNER_TEMP/results.json"
-          ls -l "$RUNNER_TEMP"/*.json || true
+          if [ ${#legs[@]} -gt 0 ]; then
+            python3 scripts/read.py merge "${legs[@]}" > "$RUNNER_TEMP/e2e/results.json"
+            cp -R out "$RUNNER_TEMP/e2e/out"
+          fi
+          ls -l "$RUNNER_TEMP/e2e"
 
       - name: What the cluster looked like
         if: failure()
@@ -92,8 +96,5 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-results
-          path: |
-            ${{ runner.temp }}/results.json
-            ${{ runner.temp }}/e2e-results-*.json
-            out/
+          path: ${{ runner.temp }}/e2e
           if-no-files-found: ignore
