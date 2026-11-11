@@ -7,7 +7,7 @@
 # name  repository  tag  sha256-of-the-source-archive
 flagship heyvaldemar/kubernetes-air-gapped-ai-agent v1.9.0 623da314d0e2c13a29bc85ef60cdf5ab975f542f3342448721e898fc6e29cb4d
 sandbox heyvaldemar/kubernetes-ai-agent-sandbox v1.4.0 2db96797d6b4e49ceaa61dc9307da14d0a67f820f4be19c71d378ac39590a03b
-# v1.0.0 holds the scripted agent only. The model leg this repository needs
-# (that repository's ADR 6) is on its main and in no release yet, so no leg
-# here reads this line until a release holds it (ADR 1).
-cypress heyvaldemar/cypress-cloud-triage-agent v1.0.0 34c5d9c0c84c1b8e444eb23398ae65f273c53f932e50ab3ae44971edcda11a63
+# v1.1.0 is the first release that holds that repository's model leg (its
+# ADR 6): three open models on CPU behind the door in front of Cypress Cloud's
+# MCP tools.
+cypress heyvaldemar/cypress-cloud-triage-agent v1.1.0 76f5e0a152e6f23e002b09f8ef49536a021135ff0cd7f949b308bdbbfbfee59f

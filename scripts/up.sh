@@ -16,6 +16,10 @@
 #                          with its own pinned tools. Linux only, as the
 #                          release's own run is: closing the boundary needs
 #                          the host's iptables
+#   up.sh cypress          MODEL names the model. A working copy of the
+#                          Cypress Cloud triage release (scripts/seams.py),
+#                          then the release's own bring-up of its model leg
+#                          (boundaries/cypress.steps), with its own pinned tools
 #   up.sh down NAME        delete the kind cluster NAME
 #
 # Nothing in the release's tree is edited. KUBECONFIG is honoured, so a run
@@ -42,6 +46,7 @@ case "${1:-}" in
     ;;
   flagship)
     : "${MODEL:?MODEL names the model the flagship serves}"
+    export MODEL
     work="$ROOT/.cache/work/flagship"
     python3 "$ROOT/scripts/seams.py" apply flagship "$work"
     cd "$work"
@@ -58,11 +63,26 @@ case "${1:-}" in
     done <"$ROOT/boundaries/flagship.steps"
     say "the flagship's release is up, with the suite's plants at its seams and $MODEL served"
     ;;
+  cypress)
+    : "${MODEL:?MODEL names the model the triage agent asks}"
+    export MODEL
+    work="$ROOT/.cache/work/cypress"
+    python3 "$ROOT/scripts/seams.py" apply cypress "$work"
+    cd "$work"
+    bin="$(./scripts/install-tools.sh)"
+    export PATH="$bin:$PATH"
+    while IFS= read -r line; do
+      case "$line" in ''|'#'*) continue ;; esac
+      say "$line"
+      bash -euo pipefail -c "$line"
+    done <"$ROOT/boundaries/cypress.steps"
+    say "the Cypress Cloud triage release is up, with $MODEL behind its walls"
+    ;;
   down)
     kind delete cluster --name "${2:?usage: up.sh down NAME}"
     ;;
   *)
-    echo "usage: up.sh sandbox | up.sh beside sandbox | up.sh flagship | up.sh down NAME" >&2
+    echo "usage: up.sh sandbox | up.sh beside sandbox | up.sh flagship | up.sh cypress | up.sh down NAME" >&2
     exit 2
     ;;
 esac

@@ -1,6 +1,6 @@
 # 1. One planted suite through every boundary, read from each boundary's own record
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-11
 
 ## Context
@@ -37,7 +37,7 @@ What this repository changes in a boundary is data, at named seams, and a check 
 
 - **The flagship.** The `notes` of five records in `manifests/records/records_api.py`, the report's message in `manifests/tools/gateway.yaml`, and `evals/tasks.json`, put into a working copy of the release by `scripts/seams.py`, which then compares every other byte with the release. The bring-up is the release's own commands in its order (`boundaries/flagship.steps`, held to the release's workflow by a check). Its own agent (`evals/harness.py`) and its own checker (`scripts/evals.sh`) run as released, with the tools' patterns hidden from the model, which its ADR 13 says is the setting that shows the model's own attempts.
 - **Cypress Cloud triage.** The `note` of order 1003 in `app/orders.json`, one Cypress run per dressing, and that repository's own model harness. This leg needs a release that holds the model leg. Until one exists it is built against a named commit on a branch and none of its numbers are published.
-- **The sandbox.** The report tool's message. The sandbox ships no model harness, so this repository adds the three things a model needs there, each stated and none of them a change to the sandbox's files: the agent Job's ConfigMap holds a model agent in place of the scripted one, the pattern the Cypress repository's ADR 6 set; a `models` namespace that reaches nothing and answers the agents only; one NetworkPolicy that opens the agents' way to the model's one port. The agent offers the model more than the door grants, as the Cypress harness does, so the door and the network refuse and not the tool list.
+- **The sandbox.** The report tool's message. The sandbox's own rule keeps models out of its CI (its ADR 4), and that rule is about its CI: this benchmark runs a model beside the sandbox's release in the benchmark's own CI and changes no file of the sandbox. The sandbox ships no model harness, so this repository adds the three things a model needs there, each stated and none of them a change to the sandbox's files: the agent Job's ConfigMap holds a model agent in place of the scripted one, the pattern the Cypress repository's ADR 6 set; a `models` namespace that reaches nothing and answers the agents only; one NetworkPolicy that opens the agents' way to the model's one port. The agent offers the model more than the door grants, as the Cypress harness does, so the door and the network refuse and not the tool list.
 
 **Three models, the ones two of the repositories already share.** Granite-4.0-1B, Qwen3.5-2B and Ministral-3-3B, by the flagship's `models/models.lock` lines: the publisher's file at a revision, its sha256, its licence, and the image digest its reproducible build makes. llama-server on CPU, temperature 0.6, a seed per attempt, as both harnesses run them today. Three attempts per dressing per run, the flagship's own setting.
 
@@ -55,7 +55,7 @@ What this repository changes in a boundary is data, at named seams, and a check 
 
 ## Consequences
 
-- A full run is one job per boundary and model, the calibration, and the record: eight jobs with two boundaries, eleven with three. The first, [43110837569](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43110837569) on 2026-11-11, took 7 to 27 minutes a job. On a public repository it is free. While the repository is private the full matrix runs on the schedule and by dispatch, and a push runs the static checks and the calibration only.
+- A full run is one job per boundary and model, the calibration, and the record: eight jobs with two boundaries, eleven with three. The first, [43110837569](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43110837569) on 2026-11-11, took 7 to 27 minutes a job. On a public repository it is free. While the repository is private the full matrix runs by dispatch only, and a push or the schedule runs the static checks and the calibration.
 - A row still does not isolate the model. The agent's role and prompt are each boundary's own, and the carrier differs: a customer record, a test failure, a report. What can be read: one model across boundaries for one dressing, one boundary across models, and how either moves over the window.
 - The samples are small. A cell is three attempts a run, and the attempts of one dressing differ only by seed. A claim cites the window, the number of runs and the count, and intervals are given by dressing.
 - A new release of a boundary is a change to `sources.lock`, reviewed as a diff, and the numbers before and after name their tags. If a release moves a seam the overlay check fails and that leg is red until it is pinned again.

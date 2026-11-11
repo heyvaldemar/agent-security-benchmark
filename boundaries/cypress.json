@@ -1,5 +1,5 @@
 {
- "_about": "The door in front of Cypress Cloud's MCP tools: the triage agent reads its own run through the door and posts through the notifier, and its network reaches those two and nothing else. Bound here so the suite is whole; no leg runs it until a release of that repository holds its model leg (ADR 1).",
+ "_about": "The door in front of Cypress Cloud's MCP tools: the triage agent reads its own run through the door and posts through the notifier, and its network reaches those two and nothing else. Its carrier is one failed test's message, so the suite goes through it one dressing at a time, and its agent is the release's own model harness, which offers the model more than the door grants.",
  "boundary": "cypress",
  "source": "cypress",
  "subject": "run",

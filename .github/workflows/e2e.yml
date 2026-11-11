@@ -1,11 +1,10 @@
 name: Benchmark e2e
 
 # The suite through each boundary as it was released, on kind, on a GitHub
-# runner. Three kinds of job: the calibration, at the sandbox's boundary, with
-# two models that hold no weights (docs/decisions/0003); one job per open
-# model at the sandbox's boundary; and one job per open model at the
-# flagship's. The Cypress Cloud triage boundary gets its jobs when a release
-# of that repository holds its model leg (docs/decisions/0001).
+# runner. The calibration, at the sandbox's boundary, with two models that
+# hold no weights (docs/decisions/0003); one job per open model at each of
+# the three boundaries (docs/decisions/0001); and one job that makes the
+# run's record.
 
 on:
   push:
@@ -17,8 +16,12 @@ on:
       legs:
         description: "Which legs to run"
         type: choice
-        options: [all, calibration, sandbox, flagship]
+        options: [all, calibration, sandbox, flagship, cypress]
         default: all
+      models:
+        description: "The models, as a JSON list"
+        type: string
+        default: '["granite-4.0-1b", "qwen3.5-2b", "ministral-3-3b"]'
 
 permissions:
   contents: read
@@ -111,17 +114,16 @@ jobs:
   sandbox:
     name: The sandbox's boundary (${{ matrix.model }})
     # An open model takes a runner of its own. While the repository is private
-    # these run on the schedule and by hand, not on every push.
+    # these run by hand only; a push and the schedule run the calibration.
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'sandbox'))
-      || github.event_name == 'schedule'
-      || (github.event_name == 'push' && github.event.repository.private == false)
+      || (github.event_name != 'workflow_dispatch' && github.event.repository.private == false)
     runs-on: ubuntu-latest
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        model: [granite-4.0-1b, qwen3.5-2b, ministral-3-3b]
+        model: ${{ fromJSON(inputs.models || '["granite-4.0-1b", "qwen3.5-2b", "ministral-3-3b"]') }}
     env:
       ATTEMPTS: "3"
     steps:
@@ -203,14 +205,13 @@ jobs:
     name: The flagship's boundary (${{ matrix.model }})
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'flagship'))
-      || github.event_name == 'schedule'
-      || (github.event_name == 'push' && github.event.repository.private == false)
+      || (github.event_name != 'workflow_dispatch' && github.event.repository.private == false)
     runs-on: ubuntu-latest
     timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
-        model: [granite-4.0-1b, qwen3.5-2b, ministral-3-3b]
+        model: ${{ fromJSON(inputs.models || '["granite-4.0-1b", "qwen3.5-2b", "ministral-3-3b"]') }}
     env:
       MODEL: ${{ matrix.model }}
     steps:
@@ -273,13 +274,87 @@ jobs:
           path: ${{ runner.temp }}/e2e
           if-no-files-found: ignore
 
+  cypress:
+    name: The Cypress Cloud triage boundary (${{ matrix.model }})
+    if: >-
+      (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'cypress'))
+      || (github.event_name != 'workflow_dispatch' && github.event.repository.private == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(inputs.models || '["granite-4.0-1b", "qwen3.5-2b", "ministral-3-3b"]') }}
+    env:
+      MODEL: ${{ matrix.model }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The runner
+        run: |
+          cpu="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//' || true)"
+          echo "cpu: ${cpu:-unknown}, $(nproc) vCPU"
+
+      - name: Room for a model
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h / | tail -1
+
+      - name: Install the pinned tools
+        run: ./scripts/install-tools.sh >> "$GITHUB_PATH"
+
+      - name: The release, verified as a stranger would
+        run: ./scripts/sources.sh cypress
+
+      - name: The release's own bring-up of its model leg, from a working copy
+        run: ./scripts/up.sh cypress
+
+      - name: The suite, by the release's own model harness, one plant at a time
+        env:
+          E2E_RESULTS: ${{ runner.temp }}/e2e/e2e-results-cypress-${{ matrix.model }}.json
+        run: ./tests/e2e/run.sh cypress "$MODEL"
+
+      - name: One record of the run
+        if: always()
+        run: |
+          shopt -s nullglob
+          mkdir -p "$RUNNER_TEMP/e2e"
+          legs=(out/*/*/leg.json)
+          if [ ${#legs[@]} -gt 0 ]; then
+            python3 scripts/read.py merge "${legs[@]}" > "$RUNNER_TEMP/e2e/results.json"
+          fi
+          [ -d out ] && cp -R out "$RUNNER_TEMP/e2e/out"
+          ls -l "$RUNNER_TEMP/e2e"
+
+      - name: What the cluster looked like
+        if: failure()
+        run: |
+          export PATH="$PWD/.cache/work/cypress/.cache/bin:$PATH"
+          kubectl get pods -A -o wide || true
+          kubectl -n triage-agents get jobs || true
+          kubectl -n triage logs deployment/receiver --tail=20 || true
+          kubectl -n models logs deployment/llama --tail=20 || true
+          tail -n 30 .cache/work/cypress/out/cypress.log || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -30 || true
+
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results-cypress-${{ matrix.model }}
+          path: ${{ runner.temp }}/e2e
+          if-no-files-found: ignore
+
   record:
     name: One record of the run, signed
     # Every leg's results as one file under the run's id. On a public
     # repository it is signed, keyless: the certificate names this workflow,
     # the commit and the run. Signing waits for that because the transparency
     # log is public and would carry a private repository's name.
-    needs: [calibration, sandbox, flagship]
+    needs: [calibration, sandbox, flagship, cypress]
     if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10

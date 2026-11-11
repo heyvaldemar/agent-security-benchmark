@@ -1,0 +1,12 @@
+# How the Cypress Cloud triage release brings its model leg up on kind, one
+# command a line, in its order: the `run:` lines of the job `models` in its
+# own .github/workflows/e2e.yml at the tag sources.lock pins, from creating
+# the cluster to putting the model harness in the triage agent's place.
+# scripts/up.sh runs them from a working copy of the release;
+# scripts/validate.sh seams fails if this list is not the release's.
+kind create cluster --config kind/cluster.yaml --wait 120s
+./scripts/install.sh
+./scripts/models.sh registry
+./scripts/models.sh build "$MODEL"
+./scripts/models.sh serve "$MODEL"
+./scripts/models.sh agent "$MODEL"
