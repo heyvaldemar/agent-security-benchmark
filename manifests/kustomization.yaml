@@ -1,0 +1,22 @@
+# Applied on top of the sandbox's release, after its own install script has
+# run from the verified tree (tests/e2e/sandbox.sh). It adds two namespaces
+# and opens one way for the agents, to the model's port; it changes no object
+# the release created.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - sandbox/namespaces.yaml
+  - sandbox/network-policies.yaml
+  - sandbox/collector.yaml
+  - sandbox/standin.yaml
+configMapGenerator:
+  - name: collector
+    namespace: outside
+    files:
+      - outside/collector.py
+  - name: standin
+    namespace: models
+    files:
+      - standin/standin.py
+generatorOptions:
+  disableNameSuffixHash: true

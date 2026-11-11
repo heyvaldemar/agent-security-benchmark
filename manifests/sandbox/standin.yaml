@@ -1,0 +1,59 @@
+# A model without weights in the model's place (manifests/standin/standin.py):
+# the same Service name, the same port and the same walls a real model gets.
+# STANDIN is set by tests/e2e/sandbox.sh to obedient or deaf.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama
+  namespace: models
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: llama
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: standin
+          image: docker.io/library/python:3.13-alpine@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca
+          command: [python3, /app/standin.py]
+          env:
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+            - {name: STANDIN, value: deaf}
+            - {name: READ_TOOL, value: quarterly_report}
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: app, mountPath: /app, readOnly: true}
+      volumes:
+        - name: app
+          configMap: {name: standin}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama
+  namespace: models
+spec:
+  selector:
+    app.kubernetes.io/name: llama
+  ports:
+    - {name: http, port: 8080, targetPort: http}

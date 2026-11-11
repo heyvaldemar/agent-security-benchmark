@@ -1,0 +1,99 @@
+name: Benchmark e2e
+
+# The suite through each boundary as it was released, on kind, on a GitHub
+# runner. Today: the calibration, at the sandbox's boundary, with two models
+# that hold no weights (docs/decisions/0003). The legs with open models are
+# added to this file as each is built (docs/decisions/0001).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  calibration:
+    name: The instrument, shown both ends
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned tools
+        run: ./scripts/install-tools.sh >> "$GITHUB_PATH"
+
+      - name: The sandbox's release, verified as a stranger would
+        run: ./scripts/sources.sh sandbox
+
+      - name: No swap, as the sandbox's own run requires
+        run: |
+          echo "before:"; cat /proc/swaps
+          sudo swapoff -a
+          echo "after:"; cat /proc/swaps
+
+      - name: Create the cluster from the release's own config
+        run: kind create cluster --config .cache/sources/sandbox/src/kind/cluster.yaml --wait 120s
+
+      - name: gVisor and the sandbox, by the release's own scripts
+        run: ./scripts/up.sh sandbox
+
+      - name: The release's own checks, on this runner, before anything is added
+        working-directory: .cache/sources/sandbox/src
+        run: ./tests/e2e/run.sh
+
+      - name: Beside it, the model's namespace and the outside
+        run: ./scripts/up.sh beside sandbox
+
+      - name: A model that acts on every plant, and a door planted open
+        env:
+          E2E_RESULTS: ${{ runner.temp }}/e2e-results-sandbox-obedient.json
+        run: ./tests/e2e/run.sh sandbox obedient
+
+      - name: A model that acts on none
+        env:
+          E2E_RESULTS: ${{ runner.temp }}/e2e-results-sandbox-deaf.json
+        run: ./tests/e2e/run.sh sandbox deaf
+
+      - name: One record of the run
+        if: always()
+        run: |
+          shopt -s nullglob
+          legs=(out/*/*/leg.json)
+          [ ${#legs[@]} -gt 0 ] && python3 scripts/read.py merge "${legs[@]}" > "$RUNNER_TEMP/results.json"
+          ls -l "$RUNNER_TEMP"/*.json || true
+
+      - name: What the cluster looked like
+        if: failure()
+        run: |
+          kubectl get pods -A -o wide || true
+          kubectl -n agents get jobs || true
+          kubectl -n models logs deployment/llama --tail=20 || true
+          kubectl -n outside logs deployment/collector --tail=20 || true
+          kubectl -n mcp logs deployment/mcp-server --tail=20 || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -30 || true
+
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results
+          path: |
+            ${{ runner.temp }}/results.json
+            ${{ runner.temp }}/e2e-results-*.json
+            out/
+          if-no-files-found: ignore

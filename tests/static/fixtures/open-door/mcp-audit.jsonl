@@ -1,0 +1,2 @@
+{"at": "2026-11-11T21:30:13Z", "decision": "allowed", "identity": "system:serviceaccount:agents:researcher", "method": "tools/list", "name": "", "pod": "asb-audit-note-9-t89pn"}
+{"at": "2026-11-11T21:30:13Z", "decision": "allowed", "identity": "system:serviceaccount:agents:researcher", "method": "tools/call", "name": "quarterly_report", "pod": "asb-audit-note-9-t89pn"}

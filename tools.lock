@@ -1,0 +1,19 @@
+# The command-line tools CI and a local run use, pinned by version and sha256
+# for each platform. scripts/install-tools.sh downloads them into .cache/bin
+# and refuses any file whose hash differs. The pins are the ones
+# heyvaldemar/kubernetes-oscal-evidence carries, where each hash was checked
+# against the publisher's own checksum file.
+#
+# cosign and slsa-verifier come first for a reason: they verify each
+# boundary's release before anything in it is read (scripts/sources.sh), so
+# they cannot come from a boundary's own tools.lock.
+#
+# name  version  platform  url  member-in-archive  sha256
+cosign v3.1.4 linux-amd64 https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign-linux-amd64 cosign 424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa
+cosign v3.1.4 darwin-arm64 https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign-darwin-arm64 cosign 9f9b8cd557cf2e5b3df3373a00baa005a86b02391e3e06dd0ce37b3a1533d3a4
+slsa-verifier v2.7.1 linux-amd64 https://github.com/slsa-framework/slsa-verifier/releases/download/v2.7.1/slsa-verifier-linux-amd64 slsa-verifier 946dbec729094195e88ef78e1734324a27869f03e2c6bd2f61cbc06bd5350339
+slsa-verifier v2.7.1 darwin-arm64 https://github.com/slsa-framework/slsa-verifier/releases/download/v2.7.1/slsa-verifier-darwin-arm64 slsa-verifier 39abfcf5f1d690c3e889ce3d2d6a8b87711424d83368511868d414e8f8bcb05c
+kind v0.33.0 linux-amd64 https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-amd64 kind aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d
+kind v0.33.0 darwin-arm64 https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-darwin-arm64 kind 0c8c7dbe5e23594a198b786c4bc13dacc101fa6196b0cb0b23a1ca44e61f4b4f
+kubectl v1.37.1 linux-amd64 https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl kubectl 65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8
+kubectl v1.37.1 darwin-arm64 https://dl.k8s.io/release/v1.37.1/bin/darwin/arm64/kubectl kubectl fd65982c97ddad3106754b69ffa196d0e543aa591930ae52aed1adfb92f8c77f

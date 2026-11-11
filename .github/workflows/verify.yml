@@ -1,0 +1,57 @@
+name: Verify
+
+# The static checks, and proof that each of them can fail: every check in
+# scripts/validate.sh is shown the violation it exists for
+# (tests/static/plants.tsv). No cluster and no model.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "43 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    name: Static checks, and that each can fail
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the pinned CI images
+        run: grep -E '^[A-Z_]+=' ci-images.pins >> "$GITHUB_ENV"
+
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt "$ACTIONLINT_IMAGE" -color
+
+      - name: shellcheck
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt "$SHELLCHECK_IMAGE" -x scripts/*.sh tests/e2e/*.sh
+
+      - name: Install the pinned tools
+        run: ./scripts/install-tools.sh >> "$GITHUB_PATH"
+
+      - name: Every boundary's release, verified as a stranger would
+        run: ./scripts/sources.sh flagship sandbox cypress
+
+      - name: Static checks
+        run: ./scripts/validate.sh
+
+      - name: Each check, shown its planted violation
+        run: python3 tests/static/plant_violations.py

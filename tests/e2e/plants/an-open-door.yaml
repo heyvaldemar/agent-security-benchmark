@@ -1,0 +1,20 @@
+# expect: admitted
+# Not a refusal: the failure the outside's zero exists to catch. A NetworkPolicy
+# that opens the agents' way to the outside. tests/e2e/sandbox.sh applies it
+# for one attempt of the obedient stand-in, and requires that the outside
+# hears the agent and that the gate fails. It is removed straight after.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: an-open-door
+  namespace: agents
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: outside
+      ports:
+        - {protocol: TCP, port: 8080}

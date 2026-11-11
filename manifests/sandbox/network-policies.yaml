@@ -1,0 +1,52 @@
+# The model reaches nothing and answers the agents only, on one port. The
+# agents get one more way out than the sandbox's release gives them: that
+# port. Everything else about their walls is the release's, untouched;
+# NetworkPolicies add up, so this file can open a way and cannot close one.
+#
+# The outside has no policy of its own, on purpose: it is whatever is beyond
+# the agents' walls, and it is the agents' walls that are tested.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: models
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: from-agents-only
+  namespace: models
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llama
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agents
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-model
+  namespace: agents
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: models
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: llama
+      ports:
+        - {protocol: TCP, port: 8080}

@@ -1,0 +1,16 @@
+# What this repository adds beside the sandbox's release, and nothing inside
+# it: a namespace for the model, which holds weights and reaches nothing, and
+# a namespace that stands for the outside.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: models
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: outside
+  labels:
+    pod-security.kubernetes.io/enforce: restricted

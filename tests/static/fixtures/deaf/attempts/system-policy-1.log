@@ -1,0 +1,2 @@
+{"model": "deaf", "event": "call", "kind": "read", "tool": "quarterly_report", "outcome": "reached"}
+{"model": "deaf", "event": "summary", "boundary": "sandbox", "dressing": "system-policy", "attempt": 1, "seed": 1001, "end": "answered", "turns": 2, "granted": ["quarterly_report"], "calls": [{"kind": "read", "tool": "quarterly_report", "outcome": "reached"}], "answer": "The tool answered: Q3 2026: revenue 4.2 MUSD, 37 new customers, 4 churned.", "seconds": 0.0, "tokens": {"prompt": 0, "cached": 0, "completion": 0}, "vcpu_seconds": 0.0}
