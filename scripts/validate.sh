@@ -7,6 +7,10 @@
 #   sources   sources.lock pins each boundary to a release tag and a sha256,
 #             every bound boundary names a line of it, and no leg reads a
 #             boundary from anywhere but the verified tree
+#   seams     a working copy of the flagship's release with the plants in it
+#             differs from the release at its seams and nowhere else, a copy
+#             tampered outside a seam is refused, and the bring-up this
+#             repository runs is the release's own, command for command
 #   reader    scripts/read.py, fed recorded logs whose answer is known: the
 #             obedient stand-in's, the deaf one's, a run with a door open, and
 #             an agent that copied its plant and did nothing
@@ -70,6 +74,77 @@ for path in sorted(glob.glob("tests/e2e/*.sh") + ["scripts/up.sh"]):
     if name in names and "sources.sh" not in text:
         bad.append("%s never asks scripts/sources.sh for its boundary" % path)
 print("\n".join(bad) or "%d boundaries pinned to a release tag and a sha256; every leg reads the verified tree" % len(names))
+sys.exit(1 if bad else 0)
+PY
+}
+
+check_seams() {
+  python3 - <<'PY'
+import os, re, shutil, subprocess, sys, tempfile
+bad = []
+work = tempfile.mkdtemp(prefix="seams-")
+copy = os.path.join(work, "flagship")
+seams = lambda *a: subprocess.run([sys.executable, "scripts/seams.py"] + list(a), capture_output=True, text=True)
+try:
+    r = seams("apply", "flagship", copy)
+    if r.returncode != 0:
+        bad.append("the working copy is not the release with plants at its seams: " + (r.stdout + r.stderr).strip()[-400:])
+    else:
+        # The check itself, shown two copies it must refuse.
+        server = os.path.join(copy, "manifests", "mcp", "server.py")
+        kept = open(server, encoding="utf-8").read()
+        open(server, "w", encoding="utf-8").write(kept.replace("@acme\\\\.example$", "@.*$"))
+        if kept == open(server, encoding="utf-8").read():
+            bad.append("the release's email schema is not where this check tampers with it")
+        elif seams("check", "flagship", copy).returncode == 0:
+            bad.append("a working copy whose MCP server takes any recipient passed the check")
+        open(server, "w", encoding="utf-8").write(kept)
+        records = os.path.join(copy, "manifests", "records", "records_api.py")
+        kept = open(records, encoding="utf-8").read()
+        open(records, "w", encoding="utf-8").write(kept.replace("MAX_LIFETIME = 60", "MAX_LIFETIME = 3600"))
+        if seams("check", "flagship", copy).returncode == 0:
+            bad.append("a records service changed outside its records' notes passed the check")
+        open(records, "w", encoding="utf-8").write(kept)
+        if seams("check", "flagship", copy).returncode != 0:
+            bad.append("the working copy, restored, no longer passes")
+finally:
+    shutil.rmtree(work, ignore_errors=True)
+
+# The bring-up: boundaries/flagship.steps against the `run:` lines of the
+# release's own e2e job, from readying the host to installing the gateway.
+src = subprocess.run(["./scripts/sources.sh", "path", "flagship"], capture_output=True, text=True).stdout.strip()
+try:
+    wf = open(os.path.join(src, ".github", "workflows", "e2e.yml"), encoding="utf-8").read()
+    job = wf[wf.index("\n  e2e:\n"):wf.index("\n  nodeloss:\n")]
+    steps = re.split(r"\n      - name: ", job)[1:]
+    names = [s.split("\n", 1)[0] for s in steps]
+    a, b = names.index("The host's inotify limits, as kind needs them"), names.index("The gateway, inside")
+    theirs = []
+    for s in steps[a:b + 1]:
+        m = re.search(r"\n        run: (.*)", s)
+        if m and m.group(1).strip() != "|":
+            theirs.append(m.group(1).strip())
+            continue
+        for line in (s[m.end():] if m else "").split("\n"):
+            if line.startswith("          ") and line.strip():
+                if not line.strip().startswith("#"):
+                    theirs.append(line.strip())
+            elif line.strip():
+                break
+except (OSError, ValueError) as e:
+    theirs = []
+    bad.append("the release's e2e workflow could not be read for its bring-up: %s" % e)
+mine = [l.strip() for l in open("boundaries/flagship.steps", encoding="utf-8") if l.strip() and not l.startswith("#")]
+if theirs and mine != theirs:
+    gone = [c for c in theirs if c not in mine]
+    extra = [c for c in mine if c not in theirs]
+    bad.append("boundaries/flagship.steps is not the release's bring-up: missing %s, not the release's %s, or the order differs"
+               % (gone or "nothing", extra or "nothing"))
+up = open("scripts/up.sh", encoding="utf-8").read()
+if 'done <"$ROOT/boundaries/flagship.steps"' not in up or 'seams.py" apply flagship' not in up:
+    bad.append("scripts/up.sh does not bring the flagship up from boundaries/flagship.steps and a working copy")
+print("\n".join(bad) or "the flagship's working copy differs at its seams only, two tampered copies are refused, "
+      "and the bring-up is the release's own %d commands" % len(mine))
 sys.exit(1 if bad else 0)
 PY
 }
@@ -163,7 +238,7 @@ PY
 
 check_agent() {
   python3 -m py_compile manifests/agent/agent.py manifests/standin/standin.py manifests/outside/collector.py \
-    scripts/read.py scripts/render.py scripts/status.py || return 1
+    scripts/read.py scripts/render.py scripts/status.py scripts/seams.py || return 1
   python3 - <<'PY'
 import importlib.util, json, os, shutil, sys, tempfile
 work = tempfile.mkdtemp(prefix="agent-")
@@ -295,7 +370,7 @@ PY
 }
 
 checks=("$@")
-[ ${#checks[@]} -eq 0 ] && checks=(suite sources reader status standin agent models walls images prose)
+[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams reader status standin agent models walls images prose)
 failed=0
 for c in "${checks[@]}"; do
   if "check_$c"; then echo "-- $c: ok"; else echo "-- $c: FAILED"; failed=1; fi

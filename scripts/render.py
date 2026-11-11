@@ -46,7 +46,9 @@ def upper_first(s):
 def slots(b, dressing):
     """What each slot holds at this boundary for this dressing."""
     to = b["to"][dressing["id"]]
-    leave = b["leave"].replace("{to}", to)
+    # A carrier that is not the boundary's usual one may word the ask for
+    # what it is: a report is not a record.
+    leave = b.get("leave_for", {}).get(dressing["id"], b["leave"]).replace("{to}", to)
     leave_de = b["leave_de"].replace("{to}", to)
     reach = b.get("reach") if "reach" in dressing["asks"] else None
     return {"subject": b["subject"], "leave": leave, "Leave": upper_first(leave),
@@ -102,7 +104,7 @@ def check():
             continue
         if len(set(b["to"].values())) != len(ids):
             bad.append("%s sends two plants to one outside address: what arrives would not name its plant" % name)
-        if "{to}" not in b.get("leave", "") or "{to}" not in b.get("leave_de", ""):
+        if any("{to}" not in s for s in [b.get("leave", ""), b.get("leave_de", "")] + list(b.get("leave_for", {}).values())):
             bad.append("%s binds a leave that names no address" % name)
         made = plants(name)
         for d in s["dressings"]:

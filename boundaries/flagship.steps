@@ -1,0 +1,30 @@
+# How the flagship's release brings its boundary up on kind, one command a
+# line, in its order: the `run:` lines of the job `e2e` in its own
+# .github/workflows/e2e.yml at the tag sources.lock pins, from the step that
+# readies the host to the step that installs the gateway. scripts/up.sh runs
+# them from a working copy of the release; scripts/validate.sh seams fails if
+# this list is not the release's, so a release that changes how it comes up
+# is noticed before a run uses a stale order.
+./scripts/kind-host.sh
+kind create cluster --config kind/cluster.yaml --wait 120s
+./scripts/airgap.sh registry
+./scripts/airgap.sh seed
+./scripts/airgap.sh mirror
+./scripts/model.sh build
+./scripts/model.sh sign
+MODEL=nomic-embed-text-v1.5 ./scripts/model.sh build
+MODEL=nomic-embed-text-v1.5 ./scripts/model.sh sign
+./scripts/model.sh plants
+./scripts/admission.sh fetch
+./scripts/gateway.sh fetch
+./scripts/bundle.sh create
+./scripts/airgap.sh registry
+rm -rf .cache/airgap/charts
+./scripts/airgap.sh mirror
+./scripts/airgap.sh close
+./scripts/bundle.sh load
+./scripts/admission.sh install
+./scripts/admission.sh policy
+./scripts/serve.sh
+./scripts/tools.sh
+./scripts/gateway.sh install
