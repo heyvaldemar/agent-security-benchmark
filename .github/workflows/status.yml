@@ -52,11 +52,17 @@ jobs:
           cd "$RUNNER_TEMP/status"
           printf '# status\n\nWritten by .github/workflows/status.yml from the e2e runs on main, every day. Not edited by hand.\n' > README.md
           git init -q -b status
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          # The records of runs whose artifacts have expired stay on the
+          # branch: what the branch already holds under runs/ is kept.
+          if GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+              git fetch -q --depth 1 "https://github.com/$REPO.git" status 2>/dev/null; then
+            git checkout -q FETCH_HEAD -- runs 2>/dev/null || true
+          fi
           git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "status: $(date -u +%FT%TZ)"
           # The credential reaches git through its environment, not its
           # command line, which any process on the runner can read.
-          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
             git push -q -f "https://github.com/$REPO.git" status

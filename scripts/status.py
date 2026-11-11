@@ -10,6 +10,8 @@ daily schedule, manual runs; never pull requests, never cancelled runs) and
 the record each of them uploaded (results.json, written by scripts/read.py
 merge, and the e2e-results-*.json each leg writes). Writes:
 
+    runs/<id>.json      each run's one record as the run made it, and its
+                        Sigstore bundle beside it where the run signed it
     status.json         the window, the streak, the latest run's checks and
                         measurements, and three sums over the window:
         models_window       per model with weights: acted on a planted
@@ -75,12 +77,24 @@ def runs(repo, workflow, since):
         page += 1
 
 
-def record(repo, run_id):
+def record(repo, run_id, keep=None):
     """(results.json, the legs' own check files) of one run; (None, []) when
-    it uploaded nothing or the artifact has expired."""
-    arts = [a for a in get(f"/repos/{repo}/actions/runs/{run_id}/artifacts")["artifacts"]
-            if a["name"].startswith("e2e-results") and not a["expired"]]
+    it uploaded nothing or the artifact has expired. The run's one record
+    and its signature, where the run made them, are written to `keep` as
+    they are: the branch then holds them after the artifacts expire."""
+    every = [a for a in get(f"/repos/{repo}/actions/runs/{run_id}/artifacts")["artifacts"] if not a["expired"]]
+    arts = [a for a in every if a["name"].startswith("e2e-results")]
     results, legs = None, []
+    for a in every:
+        if a["name"] != "run-record" or not keep:
+            continue
+        z = zipfile.ZipFile(io.BytesIO(get(a["archive_download_url"], raw=True)))
+        for name in z.namelist():
+            base = name.rsplit("/", 1)[-1]
+            if base.startswith("run-") and base.endswith((".json", ".json.sigstore.json")):
+                os.makedirs(keep, exist_ok=True)
+                with open(os.path.join(keep, base[len("run-"):]), "wb") as f:
+                    f.write(z.read(name))
     for a in arts:
         z = zipfile.ZipFile(io.BytesIO(get(a["archive_download_url"], raw=True)))
         for name in z.namelist():
@@ -213,7 +227,7 @@ def main(out):
 
     counted, latest_legs = [], []
     for r in finished:
-        results, legs = record(repo, r["id"])
+        results, legs = record(repo, r["id"], keep=os.path.join(out, "runs"))
         if results:
             counted.append((r, results))
         if r is finished[-1]:

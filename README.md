@@ -106,6 +106,20 @@ A reader of results can be wrong without anything looking wrong, so it is shown 
 - Admission is shown the agent Job as run, which it must admit, and the same Job off gVisor, with an API token, with a Secret and with an image by tag, each of which it must refuse for its reason.
 - Every static check in `scripts/validate.sh` is shown the violation it exists for (`tests/static/plants.tsv`): a renderer that changes a dressing's words, a boundary read from a branch, a reader that takes a copy of a plant for acting on it, a wall with a second way through.
 
+## A run's record, and its signature
+
+Every run on main ends with one file, `run-<run id>.json`: each leg's attempts, what the boundary's side recorded, and every check the jobs made. The `status` branch keeps it as `runs/<run id>.json` after the run's artifacts expire, beside the 30-day sums in `status.json`.
+
+A run made while the repository is public signs its record with cosign, keyless, and the bundle sits beside it. Verifying one needs nothing from this repository but the two files:
+
+```bash
+cosign verify-blob runs/<run id>.json --bundle runs/<run id>.json.sigstore.json \
+  --certificate-identity https://github.com/heyvaldemar/agent-security-benchmark/.github/workflows/e2e.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The certificate names the workflow, the commit and the run that made the file. Records of runs made before the repository was public carry no signature: a public transparency log is no place for a private repository's name.
+
 ## Quickstart
 
 Docker, Python 3 and `make`. The pinned tools (kind, kubectl, cosign, slsa-verifier) are downloaded into `.cache/bin`, each checked against its sha256.
