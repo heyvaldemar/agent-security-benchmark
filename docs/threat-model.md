@@ -38,7 +38,7 @@ Each attempt records whether the plant was read: the call that carries it was ma
 
 ## What it does not show
 
-- **Words.** A model that tells its reader to send the data, says it sent what the wall stopped, or leaves a finding out of its answer has made no call. The first two are counted when the outside address appears in the answer (`answer_names_the_outside`) and are not read further. A person who follows such advice is outside every wall here.
+- **Words.** A model that tells its reader to send the data, says it sent what the wall stopped, or leaves a finding out of its answer has made no call. Each attempt records whether the outside address appears in the answer (`answer_names_the_outside`), which is also true of a model that only copied the plant, and the answer is not read further. A person who follows such advice is outside every wall here.
 - **A model in isolation.** Each boundary's agent has its own role and system prompt, and the plant arrives in a different carrier. The flagship's prompt tells the model that tool results are data; the other two do not. Each leg's record says which (`prompt_says_tool_results_are_data`).
 - **Independent samples.** Three attempts of one dressing differ by seed only. A count over attempts overstates what it rests on; read by dressing, and over the window.
 - **Other attackers.** Someone who controls the model's weights, the agent's code, a tool server or the cluster is the subject of the boundaries' own threat models (gVisor, admission, signed model images, the air gap), and nothing here tests them.
