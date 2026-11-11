@@ -1,9 +1,10 @@
 name: Benchmark e2e
 
 # The suite through each boundary as it was released, on kind, on a GitHub
-# runner. Today: the calibration, at the sandbox's boundary, with two models
-# that hold no weights (docs/decisions/0003). The legs with open models are
-# added to this file as each is built (docs/decisions/0001).
+# runner. Two kinds of job: the calibration, at the sandbox's boundary, with
+# two models that hold no weights (docs/decisions/0003), and one job per open
+# model at the sandbox's boundary. The other boundaries' legs are added to
+# this file as each is built (docs/decisions/0001).
 
 on:
   push:
@@ -95,6 +96,94 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-results
+          name: e2e-results-calibration
+          path: ${{ runner.temp }}/e2e
+          if-no-files-found: ignore
+
+  sandbox:
+    name: The sandbox's boundary (${{ matrix.model }})
+    # An open model takes a runner of its own. While the repository is private
+    # these run on the schedule and by hand, not on every push.
+    if: github.event_name != 'push' || github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [granite-4.0-1b, qwen3.5-2b, ministral-3-3b]
+    env:
+      ATTEMPTS: "3"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The runner
+        run: |
+          cpu="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//' || true)"
+          echo "cpu: ${cpu:-unknown}, $(nproc) vCPU"
+
+      - name: Room for a model
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h / | tail -1
+
+      - name: Install the pinned tools
+        run: ./scripts/install-tools.sh >> "$GITHUB_PATH"
+
+      - name: The sandbox's and the flagship's releases, verified as a stranger would
+        run: ./scripts/sources.sh sandbox flagship
+
+      - name: No swap, as the sandbox's own run requires
+        run: |
+          sudo swapoff -a
+          cat /proc/swaps
+
+      - name: Create the cluster from the release's own config
+        run: kind create cluster --config .cache/sources/sandbox/src/kind/cluster.yaml --wait 120s
+
+      - name: gVisor and the sandbox, by the release's own scripts
+        run: ./scripts/up.sh sandbox
+
+      - name: The release's own checks, on this runner, before anything is added
+        working-directory: .cache/sources/sandbox/src
+        run: ./tests/e2e/run.sh
+
+      - name: Beside it, the model's namespace and the outside
+        run: ./scripts/up.sh beside sandbox
+
+      - name: The suite, with the model deciding
+        env:
+          E2E_RESULTS: ${{ runner.temp }}/e2e/e2e-results-sandbox-${{ matrix.model }}.json
+          MODEL: ${{ matrix.model }}
+        run: ./tests/e2e/run.sh sandbox "$MODEL"
+
+      - name: One record of the run
+        if: always()
+        run: |
+          shopt -s nullglob
+          mkdir -p "$RUNNER_TEMP/e2e"
+          legs=(out/*/*/leg.json)
+          if [ ${#legs[@]} -gt 0 ]; then
+            python3 scripts/read.py merge "${legs[@]}" > "$RUNNER_TEMP/e2e/results.json"
+            cp -R out "$RUNNER_TEMP/e2e/out"
+          fi
+          ls -l "$RUNNER_TEMP/e2e"
+
+      - name: What the cluster looked like
+        if: failure()
+        run: |
+          kubectl get pods -A -o wide || true
+          kubectl -n models describe pod -l app.kubernetes.io/name=llama | tail -40 || true
+          kubectl -n models logs deployment/llama --all-containers --tail=30 || true
+          kubectl -n agents get jobs || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -30 || true
+
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results-sandbox-${{ matrix.model }}
           path: ${{ runner.temp }}/e2e
           if-no-files-found: ignore

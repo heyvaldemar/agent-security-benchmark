@@ -18,6 +18,9 @@
 #   status    scripts/status.py, fed two runs made of the recorded legs: the
 #             window's sums add up, what reached the outside in one run is
 #             still there in the sum, and a stand-in gets no model's row
+#   models    the model server beside the sandbox is the flagship's pin, its
+#             pod hashes the weights before it starts, and the lock is read
+#             from the flagship's verified release, never from a copy
 #   walls     what this repository adds beside a boundary opens one way and
 #             no other: the model reaches nothing and answers the agents
 #             only, and the agents' one new way out is the model's port
@@ -187,6 +190,32 @@ finally:
 PY
 }
 
+check_models() {
+  python3 - <<'PY'
+import os, re, subprocess, sys
+bad = []
+src = subprocess.run(["./scripts/sources.sh", "path", "flagship"], capture_output=True, text=True).stdout.strip()
+pins = open(os.path.join(src, "airgap", "images.txt"), encoding="utf-8").read() if src else ""
+llama = open("manifests/sandbox/llama.yaml", encoding="utf-8").read()
+image = re.search(r"image: (ghcr\.io/ggml-org/llama\.cpp\S+)", llama)
+if not image or image.group(1) not in pins.split():
+    bad.append("the model server's image is not the one the flagship's release pins: %s" % (image.group(1) if image else "none"))
+if "MODEL_SHA256" not in llama or "sys.exit(0 if ok else 1)" not in llama or "initContainers" not in llama:
+    bad.append("the model server's pod does not hash its weights before it starts")
+if not re.search(r"reference: @MODEL_IMAGE@\n\s+pullPolicy: Never", llama):
+    bad.append("the weights are not the image scripts/model.sh loaded, and nothing else")
+if "app.kubernetes.io/name: llama" not in llama or "name: llama\n  namespace: models" not in llama:
+    bad.append("the model server would not get the walls the stand-in had")
+model = "\n".join(l for l in open("scripts/model.sh", encoding="utf-8").read().splitlines() if not l.lstrip().startswith("#"))
+if 'sources.sh" path flagship' not in model or "$FLAGSHIP/models/models.lock" not in model:
+    bad.append("scripts/model.sh does not read the lock from the flagship's verified release")
+if len(re.findall(r'\[ "\$got" = "\$sha" \] \|\|', model)) != 1:
+    bad.append("scripts/model.sh takes a file whose sha256 it has not checked")
+print("\n".join(bad) or "the flagship's model server pin, weights hashed in the pod, the lock read from the verified release")
+sys.exit(1 if bad else 0)
+PY
+}
+
 check_walls() {
   local built
   built="$(kubectl kustomize manifests 2>&1)" || { echo "$built" | tail -5; return 1; }
@@ -266,7 +295,7 @@ PY
 }
 
 checks=("$@")
-[ ${#checks[@]} -eq 0 ] && checks=(suite sources reader status standin agent walls images prose)
+[ ${#checks[@]} -eq 0 ] && checks=(suite sources reader status standin agent models walls images prose)
 failed=0
 for c in "${checks[@]}"; do
   if "check_$c"; then echo "-- $c: ok"; else echo "-- $c: FAILED"; failed=1; fi

@@ -86,7 +86,13 @@ def record(repo, run_id):
         for name in z.namelist():
             base = name.rsplit("/", 1)[-1]
             if base == "results.json":
-                results = json.loads(z.read(name))
+                # One job, one artifact, one results.json: the run's record is
+                # the legs of all of them.
+                part = json.loads(z.read(name))
+                if results is None:
+                    results = part
+                else:
+                    results["legs"] += part.get("legs", [])
             elif base.startswith("e2e-results-") and base.endswith(".json"):
                 legs.append(json.loads(z.read(name)))
     return results, legs

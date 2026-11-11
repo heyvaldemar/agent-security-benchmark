@@ -1,0 +1,86 @@
+# An open model in the stand-in's place (scripts/model.sh serve): the same
+# Deployment name, the same Service, the same label the walls select, so the
+# model gets exactly the policies the stand-in had. Not in the kustomization:
+# it replaces what the kustomization applies.
+#
+# llama-server is the flagship's pin (kubernetes-air-gapped-ai-agent,
+# airgap/images.txt), with the arguments its own model server runs with;
+# scripts/validate.sh models fails if the pin drifts from the release's. The
+# weights are an image of one file, mounted read-only, and the init container
+# hashes that file: any sha256 but the one the flagship's lock pins, and the
+# model server never starts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama
+  namespace: models
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: llama
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: check-weights
+          image: docker.io/library/python:3.13-alpine@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca
+          command:
+            - python3
+            - -c
+            - |
+              import hashlib, os, sys
+              h = hashlib.sha256()
+              with open("/models/model.gguf", "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              ok = h.hexdigest() == os.environ["MODEL_SHA256"]
+              print("weights sha256 %s: %s" % (h.hexdigest(), "as pinned" if ok else "NOT the pinned " + os.environ["MODEL_SHA256"]))
+              sys.exit(0 if ok else 1)
+          env:
+            - {name: MODEL_SHA256, value: "@MODEL_SHA256@"}
+          resources:
+            requests: {cpu: 50m, memory: 32Mi}
+            limits: {cpu: "1", memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: model, mountPath: /models, readOnly: true}
+      containers:
+        - name: llama-server
+          image: ghcr.io/ggml-org/llama.cpp:server-b11429@sha256:2f8ebc2dde83c4bd7e5c6d61efa57965e0d5a79d29802c246c4593740d9c04c1
+          args: ["-m", "/models/model.gguf", "--alias", "@ALIAS@", "--jinja", "-c", "8192", "-np", "1", "-t", "4",
+                 "--cache-ram", "512", "--reasoning", "off", "--host", "0.0.0.0", "--port", "8080"]
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests: {cpu: 250m, memory: 1536Mi}
+            limits: {memory: 6Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: model, mountPath: /models, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: model
+          image:
+            reference: @MODEL_IMAGE@
+            pullPolicy: Never
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}

@@ -28,3 +28,7 @@
 "scripts/status.py"	"            w[\"reached_outside\"] += rec[\"reached_outside\"]\n"	"            w[\"reached_outside\"] = rec[\"reached_outside\"]\n"	"status"	"a window that keeps only the last leg's count of what reached the outside"
 "scripts/status.py"	"            if m in STANDINS:\n"	"            if False:\n"	"status"	"a stand-in given a model's row"
 "scripts/status.py"	"            w[\"tried_to_leave\"] += rec[\"tried_to_leave\"]\n"	""	"status"	"a window that counts no attempt to leave"
+"manifests/sandbox/llama.yaml"	"@sha256:2f8ebc2dde83c4bd7e5c6d61efa57965e0d5a79d29802c246c4593740d9c04c1"	"@sha256:2f8ebc2dde83c4bd7e5c6d61efa57965e0d5a79d29802c246c4593740d9c04c2"	"models"	"a model server that is not the flagship's pin"
+"manifests/sandbox/llama.yaml"	"              sys.exit(0 if ok else 1)\n"	"              sys.exit(0)\n"	"models"	"a pod that starts on any weights"
+"scripts/model.sh"	"  [ \"$got\" = \"$sha\" ] || { echo \"$MODEL.gguf is $got; the flagship's models.lock pins $sha\" >&2; exit 1; }\n"	""	"models"	"weights taken without their sha256 checked"
+"scripts/model.sh"	"awk -v m=\"$MODEL\" '$1 == m && $0 !~ /^[[:space:]]*#/' \"$FLAGSHIP/models/models.lock\""	"awk -v m=\"$MODEL\" '$1 == m && $0 !~ /^[[:space:]]*#/' \"$ROOT/models.lock\""	"models"	"a list of models copied out of the flagship's release"

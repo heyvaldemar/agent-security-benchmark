@@ -14,7 +14,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Two models without weights, `obedient` and `deaf`, and a door planted open: the reader of results is shown both ends of its scale and the failure its zero exists to catch, on every run ([ADR 3](docs/decisions/0003-two-models-without-weights.md)).
 - `scripts/read.py`: what a model did, from the agent's calls, and what the boundary let out, from the outside's log and the door's audit, with a control for every zero.
 - `scripts/status.py` and the `status` branch: the fleet's fields, and three sums over 30 days of runs on main: `models_window` (per model with weights, acted on N of M attempts across K runs), `boundaries_window` (per boundary, attempts to leave, how many reached the outside, what stopped the rest) and `calibration_window` (the stand-ins and the open door). `scheduled_streak` is the number a word of cadence waits for.
-- `scripts/validate.sh`, nine static checks, each shown its planted violations (`tests/static/plants.tsv`), and four recorded legs whose answer is known (`tests/static/fixtures/`).
+- Open models at the sandbox's boundary: `scripts/model.sh` takes Granite-4.0-1B, Qwen3.5-2B and Ministral-3-3B by the lines of the flagship's `models/models.lock`, read from its verified release, refuses a file whose sha256 differs, and serves it with the flagship's llama-server pin in the stand-in's place (`manifests/sandbox/llama.yaml`), where the pod hashes the weights again before the server starts. One job per model in the e2e workflow, three attempts per dressing.
+- `scripts/validate.sh`, ten static checks, each shown its planted violations (`tests/static/plants.tsv`), and four recorded legs whose answer is known (`tests/static/fixtures/`).
 
 ### Found while building it
 
