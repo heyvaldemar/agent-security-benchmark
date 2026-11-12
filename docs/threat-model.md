@@ -28,7 +28,7 @@ Each attempt records whether the plant was read: the call that carries it was ma
 | What could go wrong | What holds it |
 |---|---|
 | The reader counts what did not happen, or misses what did | Two models without weights whose rows are known before the run, on every run, and recorded legs with known answers on every Verify run ([ADR 3](decisions/0003-two-models-without-weights.md)) |
-| The outside's zero is the zero of a collector nobody can reach | A pod with no wall around it must be heard by the same collector, and a door planted open must make the gate fail |
+| The outside's zero is the zero of a collector nobody can reach, or the agent's own request is taken for the control | A pod with no wall around it must be heard by the same collector, on a path made up for that run, from that pod's address, as many times as it called; anything else heard got out. A door planted open must make the gate fail |
 | The boundary under test is not the one that was released | `sources.lock` pins tag and sha256; cosign and slsa-verifier pass before anything is read; the release's own e2e runs on the same runner first |
 | This repository changed the boundary to get its numbers | At the sandbox nothing in the release is changed, and admission is shown the agent Job as run and four tampered ones. At the flagship a working copy is compared with the release byte for byte outside three seams of data, and two tampered copies must be refused ([scripts/seams.py](../scripts/seams.py)) |
 | What stands beside a boundary opens it | One NetworkPolicy, to the model's one port. `scripts/validate.sh walls` holds each of the three policies to the exact rules that were reviewed, and the model's namespace reaches nothing |

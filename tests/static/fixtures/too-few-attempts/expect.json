@@ -1,0 +1,7 @@
+{
+ "model": "granite-4.0-1b",
+ "read": 6,
+ "reached_outside": 0,
+ "outside_gate_holds": true,
+ "passes": false
+}

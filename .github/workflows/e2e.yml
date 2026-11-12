@@ -9,6 +9,12 @@ name: Benchmark e2e
 on:
   push:
     branches: [main]
+    # A change to words alone runs the static checks (Verify), not clusters.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
@@ -26,9 +32,12 @@ on:
 permissions:
   contents: read
 
+# On main a run in progress is never cut short by the next one: a full
+# matrix is hours of runners, and a run that was cut short has no record. The
+# next run waits its turn. Elsewhere the newest run is the one that matters.
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 defaults:
   run:
@@ -37,11 +46,9 @@ defaults:
 jobs:
   repo:
     name: Public or private
-    # Asked of the API, not read from the event: a scheduled run's event may
-    # carry no repository at all, and an expression that compares a missing
-    # value with false is true. What depends on the answer is whether open
-    # models run without being asked for, and whether a record is signed into
-    # a public transparency log.
+    # Asked of the API, so the answer does not depend on what an event
+    # carries. What depends on it is whether open models run without being
+    # asked for, and whether a record is signed into a public transparency log.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -134,11 +141,12 @@ jobs:
 
   sandbox:
     name: The sandbox's boundary (${{ matrix.model }})
-    # An open model takes a runner of its own. While the repository is private
-    # these run by hand only; a push and the schedule run the calibration.
+    # An open model takes a runner of its own. On a public repository these run
+    # on a push to main and on the schedule; while it is private, and on a pull
+    # request, by hand only, and the calibration is what runs.
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'sandbox'))
-      || (github.event_name != 'workflow_dispatch' && needs.repo.outputs.public == 'true')
+      || ((github.event_name == 'push' || github.event_name == 'schedule') && needs.repo.outputs.public == 'true')
     needs: repo
     runs-on: ubuntu-latest
     timeout-minutes: 75
@@ -146,8 +154,6 @@ jobs:
       fail-fast: false
       matrix:
         model: ${{ fromJSON(inputs.models || '["granite-4.0-1b", "qwen3.5-2b", "ministral-3-3b"]') }}
-    env:
-      ATTEMPTS: "3"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -227,7 +233,7 @@ jobs:
     name: The flagship's boundary (${{ matrix.model }})
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'flagship'))
-      || (github.event_name != 'workflow_dispatch' && needs.repo.outputs.public == 'true')
+      || ((github.event_name == 'push' || github.event_name == 'schedule') && needs.repo.outputs.public == 'true')
     needs: repo
     runs-on: ubuntu-latest
     timeout-minutes: 100
@@ -301,7 +307,7 @@ jobs:
     name: The Cypress Cloud triage boundary (${{ matrix.model }})
     if: >-
       (github.event_name == 'workflow_dispatch' && (inputs.legs == 'all' || inputs.legs == 'cypress'))
-      || (github.event_name != 'workflow_dispatch' && needs.repo.outputs.public == 'true')
+      || ((github.event_name == 'push' || github.event_name == 'schedule') && needs.repo.outputs.public == 'true')
     needs: repo
     runs-on: ubuntu-latest
     timeout-minutes: 100
@@ -374,12 +380,15 @@ jobs:
 
   record:
     name: One record of the run, signed
-    # Every leg's results as one file under the run's id. On a public
+    # Every leg's results as one file under the run's id, with the legs the
+    # run set out to make and did not report named in it. On a public
     # repository it is signed, keyless: the certificate names this workflow,
     # the commit and the run. Signing waits for that because the transparency
-    # log is public and would carry a private repository's name.
+    # log is public and would carry a private repository's name. A run that
+    # was cancelled makes no record: a signed record of half a run must not
+    # exist.
     needs: [repo, calibration, sandbox, flagship, cypress]
-    if: always() && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -398,6 +407,9 @@ jobs:
           path: ${{ runner.temp }}/legs
 
       - name: One record
+        env:
+          LEGS_RAN: ${{ toJSON(needs) }}
+          LEGS_MODELS: ${{ inputs.models || '["granite-4.0-1b", "qwen3.5-2b", "ministral-3-3b"]' }}
         run: |
           mkdir -p "$RUNNER_TEMP/record"
           python3 scripts/numbers.py record "$RUNNER_TEMP/legs" > "$RUNNER_TEMP/record/run-$GITHUB_RUN_ID.json"

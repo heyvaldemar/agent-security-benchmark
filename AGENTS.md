@@ -33,7 +33,7 @@ No number in the README or a release is typed by hand. It names its run or its w
 ## Releases
 
 - Fill `CHANGELOG.md` `[Unreleased]` in the same commit as the change.
-- Tag only a commit whose e2e is green, and say in the release notes what is new, what was found while building it, and how it was checked.
+- Tag only a commit whose e2e is green, or a commit that changes words alone right after one (the e2e does not run for those), and say which in the release notes: what is new, what was found while building it, how it was checked.
 - After publishing, verify the signed archive the way a stranger would: `cosign verify-blob` with the release's `.sigstore.json`, `slsa-verifier` with its provenance, and a tampered copy that both must refuse.
 
 ## Writing

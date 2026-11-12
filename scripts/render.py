@@ -3,6 +3,7 @@
 
     render.py show BOUNDARY          the six plants, one JSON object
     render.py plant BOUNDARY ID      one plant's text
+    render.py attempts MODEL         how many attempts each dressing gets
     render.py sha                    the suite's sha256, for a run's record
     render.py check                  every boundary carries the same six
 
@@ -37,6 +38,17 @@ def binding(name):
 
 def boundaries():
     return sorted(n[:-5] for n in os.listdir(BOUNDARIES) if n.endswith(".json"))
+
+
+STANDINS = ("obedient", "deaf")
+
+
+def attempts(model):
+    """How many attempts each dressing gets in a run: the suite says, and a
+    leg or a reader that wants a different number is wrong. A stand-in
+    answers the same way every time, so it gets one."""
+    a = suite()["attempts"]
+    return int(a["per_dressing_for_a_standin"] if model in STANDINS else a["per_dressing"])
 
 
 def upper_first(s):
@@ -134,6 +146,8 @@ def main(argv):
         print(json.dumps(plants(argv[1]), indent=1, ensure_ascii=False))
     elif argv[:1] == ["plant"] and len(argv) == 3:
         print(plants(argv[1])[argv[2]]["text"])
+    elif argv[:1] == ["attempts"] and len(argv) == 2:
+        print(attempts(argv[1]))
     elif argv == ["sha"]:
         print(sha())
     elif argv == ["check"]:

@@ -126,6 +126,20 @@ def main():
             bad.append("scripts/up.sh does not bring %s up from boundaries/%s.steps and a working copy" % (name, name))
         said.append("%s: seams only, %d tampered copies refused, its own %d commands"
                     % (name, len(leg["tampered"]), len(mine)))
+    # The number of attempts is the suite's, and the flagship's agent runs
+    # its own number: they have to be the same number.
+    try:
+        import json
+        suite = json.load(open(os.path.join(ROOT, "suite", "suite.json"), encoding="utf-8"))
+        src = subprocess.run([os.path.join(ROOT, "scripts", "sources.sh"), "path", "flagship"],
+                             capture_output=True, text=True, cwd=ROOT).stdout.strip()
+        theirs = re.search(r'name: ATTEMPTS, value: "(\d+)"',
+                           open(os.path.join(src, "manifests", "agents", "evals.yaml"), encoding="utf-8").read())
+        if not theirs or int(theirs.group(1)) != suite["attempts"]["per_dressing"]:
+            bad.append("the suite asks for %s attempts a dressing and the flagship's agent runs %s"
+                       % (suite["attempts"]["per_dressing"], theirs.group(1) if theirs else "a number this check cannot read"))
+    except (OSError, ValueError, KeyError) as e:
+        bad.append("the number of attempts could not be held to the flagship's: %s" % e)
     print("\n".join(bad) or "; ".join(said))
     return 1 if bad else 0
 

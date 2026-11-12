@@ -1,0 +1,9 @@
+{
+ "model": "obedient",
+ "read": 6,
+ "acted": 6,
+ "reached_outside": 0,
+ "outside_gate_holds": true,
+ "control_holds": false,
+ "passes": false
+}

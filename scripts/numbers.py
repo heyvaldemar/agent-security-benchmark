@@ -32,11 +32,41 @@ WHERE = {"flagship": "At the flagship", "sandbox": "At the sandbox", "cypress": 
 BLOCK = re.compile(r"(<!-- numbers: (\S+) (\S+) -->\n)(.*?)(<!-- /numbers -->)", re.S)
 
 
+def expected():
+    """The legs a run set out to make, from what its workflow says ran: the
+    `needs` of the record's job (each job's result) and the models' list.
+    None outside a workflow. A job that was skipped set out to make nothing;
+    one that ran, failed or was cut short owed its legs."""
+    ran, models = os.environ.get("LEGS_RAN"), os.environ.get("LEGS_MODELS")
+    if not ran or not models:
+        return None
+    ran, models = json.loads(ran), json.loads(models)
+    result = lambda job: (ran.get(job) or {}).get("result", "skipped")
+    out = []
+    if result("calibration") != "skipped":
+        out += ["sandbox/obedient", "sandbox/deaf"]
+    for boundary in ("flagship", "sandbox", "cypress"):
+        if result(boundary) != "skipped":
+            out += ["%s/%s" % (boundary, m) for m in models]
+    return sorted(out)
+
+
 def record(directory):
     parts = [json.load(open(p, encoding="utf-8"))
              for p in sorted(glob.glob(os.path.join(directory, "**", "results.json"), recursive=True))]
-    if not parts:
+    owed = expected()
+    if not parts and owed is None:
         sys.exit("no results.json under %s" % directory)
+    if not parts:
+        # A run in which no leg reported is still a run, and its record says so.
+        run = os.environ.get("GITHUB_RUN_ID")
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+        return {"schema": 1, "run": {"id": int(run) if run else None,
+                                     "url": "https://github.com/%s/actions/runs/%s" % (repo, run) if run else None,
+                                     "event": os.environ.get("GITHUB_EVENT_NAME"),
+                                     "commit": os.environ.get("GITHUB_SHA", "")[:7]},
+                "suite_sha256": None, "legs": [], "expected": owed, "missing": owed,
+                "checks_passed": 0, "checks_failed": 0}
     runs = {json.dumps(p["run"], sort_keys=True) for p in parts}
     suites = {p["suite_sha256"] for p in parts}
     if len(runs) != 1 or len(suites) != 1:
@@ -50,8 +80,13 @@ def record(directory):
             if (leg["boundary"], leg["model"]) == (job.get("boundary"), job.get("model")):
                 leg["job_checks"] = job["checks"]
     checks = [c for leg in legs for c in leg.get("job_checks", leg["checks"])]
-    return {"schema": 1, "run": parts[0]["run"], "suite_sha256": parts[0]["suite_sha256"], "legs": legs,
-            "checks_passed": sum(c["passed"] for c in checks), "checks_failed": sum(not c["passed"] for c in checks)}
+    rec = {"schema": 1, "run": parts[0]["run"], "suite_sha256": parts[0]["suite_sha256"], "legs": legs,
+           "checks_passed": sum(c["passed"] for c in checks), "checks_failed": sum(not c["passed"] for c in checks)}
+    if owed is not None:
+        have = {"%s/%s" % (x["boundary"], x["model"]) for x in legs}
+        rec["expected"] = owed
+        rec["missing"] = [leg for leg in owed if leg not in have]
+    return rec
 
 
 def cell(leg):
@@ -155,7 +190,8 @@ def tables(rec):
         rec["run"]["id"], rec["run"]["url"], rec["run"]["commit"], len(legs), rec["checks_passed"],
         rec["checks_passed"] + rec["checks_failed"]) + (
         (" The flagship's own gates held in every one of its jobs: %s." if held
-         else " The flagship's own gates did NOT all hold: %s.") % counts if own else "")
+         else " The flagship's own gates did NOT all hold: %s.") % counts if own else "") + (
+        " Legs the run set out to make and did not report: %s." % ", ".join(rec["missing"]) if rec.get("missing") else "")
     return out
 
 

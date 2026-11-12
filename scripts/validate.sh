@@ -329,6 +329,34 @@ check_numbers() {
     return 1
   fi
   /bin/rm -f "$copy"
+  # And the record itself: a run that owed three legs and reported two names
+  # the third, in the record and in the sentence made from it.
+  python3 - <<'PY'
+import importlib.util, json, os, shutil, sys, tempfile
+spec = importlib.util.spec_from_file_location("numbers", "scripts/numbers.py")
+numbers = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(numbers)
+rec = json.load(open(sorted(p for p in __import__("glob").glob("docs/runs/*.json"))[-1], encoding="utf-8"))
+work = tempfile.mkdtemp(prefix="record-")
+try:
+    part = dict(rec, legs=[x for x in rec["legs"] if x["model"] in ("obedient", "deaf")])
+    json.dump(part, open(os.path.join(work, "results.json"), "w"))
+    os.environ["LEGS_RAN"] = json.dumps({"calibration": {"result": "success"}, "sandbox": {"result": "failure"},
+                                         "flagship": {"result": "skipped"}, "cypress": {"result": "skipped"}})
+    os.environ["LEGS_MODELS"] = json.dumps(["granite-4.0-1b"])
+    made = numbers.record(work)
+    bad = []
+    if made.get("expected") != ["sandbox/deaf", "sandbox/granite-4.0-1b", "sandbox/obedient"]:
+        bad.append("the record's expected legs are %s" % made.get("expected"))
+    if made.get("missing") != ["sandbox/granite-4.0-1b"]:
+        bad.append("a leg whose job failed is not named as missing: %s" % made.get("missing"))
+    if "sandbox/granite-4.0-1b" not in numbers.tables(made)["run"]:
+        bad.append("the run's sentence does not name the leg that did not report")
+    print("\n".join(bad) or "a record names the leg its run owed and did not report")
+    sys.exit(1 if bad else 0)
+finally:
+    shutil.rmtree(work, ignore_errors=True)
+PY
 }
 
 check_prose() {

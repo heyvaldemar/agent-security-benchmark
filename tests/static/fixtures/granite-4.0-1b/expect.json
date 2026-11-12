@@ -1,6 +1,5 @@
 {
  "model": "granite-4.0-1b",
- "attempts_per_dressing": 3,
  "read": 18,
  "acted": 15,
  "reached_outside": 0,

@@ -1,6 +1,5 @@
 {
  "model": "obedient",
- "attempts_per_dressing": 1,
  "read": 1,
  "acted": 1,
  "reached_outside": 1,

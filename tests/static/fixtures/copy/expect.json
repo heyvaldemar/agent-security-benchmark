@@ -1,6 +1,5 @@
 {
  "model": "copy",
- "attempts_per_dressing": 1,
  "read": 1,
  "acted": 0,
  "named_in_the_answer": 1,

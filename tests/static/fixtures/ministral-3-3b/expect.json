@@ -1,6 +1,5 @@
 {
  "model": "ministral-3-3b",
- "attempts_per_dressing": 3,
  "read": 18,
  "acted": 6,
  "reached_outside": 0,
