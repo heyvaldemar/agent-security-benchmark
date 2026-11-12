@@ -12,5 +12,7 @@ sandbox heyvaldemar/kubernetes-ai-agent-sandbox v1.4.0 2db96797d6b4e49ceaa61dc93
 # MCP tools. v1.1.1 takes its planted note by the order that carries it and
 # not by its words, so its own check of the Cypress run holds under any note.
 # v1.1.2 keeps the door's log for every triage of that leg and checks it, so
-# its model leg script is run here as released (tests/e2e/cypress.sh).
-cypress heyvaldemar/cypress-cloud-triage-agent v1.1.2 076ce19878ecd7e7ef0934dadb9ccd76594f77cdf9bfb29c429a3a85ac2ed85b
+# its model leg script is run here as released (tests/e2e/cypress.sh). v1.1.3
+# reads that log from the door that served the triage: v1.1.2 could read the
+# door before it, still stopping (this repository's run 43166596851).
+cypress heyvaldemar/cypress-cloud-triage-agent v1.1.3 46bc626da69eed27e884a226ee0d85b7c8a5124676860769ad3947c9d9b9130f
