@@ -336,7 +336,9 @@ import importlib.util, json, os, shutil, sys, tempfile
 spec = importlib.util.spec_from_file_location("numbers", "scripts/numbers.py")
 numbers = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(numbers)
-rec = json.load(open(sorted(p for p in __import__("glob").glob("docs/runs/*.json"))[-1], encoding="utf-8"))
+# The newest record; a signed one has its bundle beside it, which is no record.
+rec = json.load(open(sorted(p for p in __import__("glob").glob("docs/runs/*.json")
+                            if not p.endswith(".sigstore.json"))[-1], encoding="utf-8"))
 work = tempfile.mkdtemp(prefix="record-")
 try:
     part = dict(rec, legs=[x for x in rec["legs"] if x["model"] in ("obedient", "deaf")])
