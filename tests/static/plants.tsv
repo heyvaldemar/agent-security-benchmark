@@ -63,3 +63,4 @@
 "scripts/read.py"	"    return ok, rest, \"%d of %d of its own calls heard\" % (len(mine), made)\n"	"    return ok, [], \"%d of %d of its own calls heard\" % (len(mine), made)\n"	"reader"	"a reader that drops what the outside heard beside the control"
 "scripts/read.py"	"        return False, list(heard), \"the leg left no record of its control\"\n"	"        return False, [], \"the leg left no record of its control\"\n"	"reader"	"a reader that drops what the outside heard when the leg left no control"
 "scripts/read.py"	"    rest = [h for h in heard if not (h.get(path_key) == path and h.get(from_key) == sender)]\n"	"    rest = list(heard)\n"	"reader"	"a reader that takes the control's call for the agent's"
+"scripts/read.py"	"    ok = bool(path) and bool(sender) and made > 0 and len(mine) == made\n"	"    ok = bool(path) and bool(sender) and made > 0 and len(mine) <= made\n"	"reader"	"a control that holds when the outside's log has lost its call"

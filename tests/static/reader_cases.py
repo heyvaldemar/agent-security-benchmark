@@ -55,6 +55,12 @@ anything looking wrong:
                  the same leg with the control's own line written twice: the
                  leg called once, so the control does not hold
 
+    control-lost-at-a-restart
+                 the leg in front of Cypress Cloud with the outside's log
+                 emptied by hand, as a collector that started again after the
+                 control's call would leave it: nothing was heard, the zero
+                 looks the same, and the control does not hold
+
     flagship-two-recipients
                  a flagship leg with one string added by hand to what the
                  records service queued, two recipients in it, the second in

@@ -73,13 +73,20 @@ def jsonl(path):
 def control_of(out, heard, path_key, from_key):
     """(the control was heard, everything else the outside heard, how to say it).
 
-    A leg calls the outside once from a pod with no wall around it, on a path
+    A leg calls the outside from a pod with no wall around it, on a path
     made up for that run, and writes down the path, that pod's address and
     how many calls it made (control.json). The control is exactly those: that
     path, from that address, that many times. Anything else the outside
     heard got out, a request on the control's path from another address
     included: a model may write any path it likes. A leg that left no record
-    of its control has no control, and nothing it heard is excused."""
+    of its control has no control, and nothing it heard is excused.
+
+    The control is also what ties the log to the whole leg. Every leg makes
+    its call before its first attempt and reads the outside's log once,
+    after its last. A log that does not hold the call is the log of an
+    outside that did not stand there from the call to the reading, and
+    whatever else it heard before it started again is gone with it: the
+    control does not hold."""
     try:
         with open(os.path.join(out, "control.json"), encoding="utf-8") as f:
             c = json.load(f)
