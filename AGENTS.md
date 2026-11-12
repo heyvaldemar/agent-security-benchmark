@@ -21,6 +21,7 @@ A new or changed check ships with the violation it exists for: a row in `tests/s
 - Nothing in a release's tree is edited. What this repository changes in a boundary is data at a named seam (a tool's message, an agent's ConfigMap), and what it adds stands beside the boundary (`manifests/`).
 - Moving a boundary to a new release is a change to `sources.lock`, reviewed as a diff, and the numbers before and after name their tags.
 - A repository's own `AGENTS.md` still binds its workflows. Nothing here dispatches another repository's workflow.
+- The repository's description on GitHub says how many boundaries the suite goes through: three. A new boundary changes that number there and in the README in the same change, and no wording says "every boundary" of the fleet: the fleet has boundaries this suite does not go through.
 
 ## Two levels, never one source
 
