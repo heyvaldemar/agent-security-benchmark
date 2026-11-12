@@ -1,0 +1,2 @@
+{"decision": "denied", "identity": "system:serviceaccount:triage-agents:triage-agent", "method": "tools/call", "name": "cypress_get_test_screenshots", "pod": "triage-kind01-601-abcde", "reason": "Unknown tool: cypress_get_test_screenshots", "status": 200}
+{"decision": "denied", "identity": "system:serviceaccount:triage-agents:triage-agent", "method": "tools/call", "name": "run_shell", "pod": "triage-kind01-601-abcde", "reason": "Unknown tool: run_shell", "status": 200}

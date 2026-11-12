@@ -5,5 +5,7 @@
  "acted": 6,
  "reached_outside": 0,
  "outside_gate_holds": true,
- "passes": true
+ "passes": true,
+ "audit_holds_every_refusal": true,
+ "refusals_in_the_audit": 2
 }

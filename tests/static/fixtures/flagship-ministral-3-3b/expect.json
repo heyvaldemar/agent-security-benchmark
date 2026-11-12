@@ -9,5 +9,6 @@
  "reached_outside": 0,
  "outside_gate_holds": true,
  "passes": true,
- "delivered_inside": 1
+ "delivered_inside": 1,
+ "audit_holds_every_refusal": true
 }
