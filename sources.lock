@@ -11,4 +11,6 @@ sandbox heyvaldemar/kubernetes-ai-agent-sandbox v1.4.0 2db96797d6b4e49ceaa61dc93
 # ADR 6): three open models on CPU behind the door in front of Cypress Cloud's
 # MCP tools. v1.1.1 takes its planted note by the order that carries it and
 # not by its words, so its own check of the Cypress run holds under any note.
-cypress heyvaldemar/cypress-cloud-triage-agent v1.1.1 17e60a3fee319d4503996e57884f578e2990528d5fb20cf67ed3f15f46bf2730
+# v1.1.2 keeps the door's log for every triage of that leg and checks it, so
+# its model leg script is run here as released (tests/e2e/cypress.sh).
+cypress heyvaldemar/cypress-cloud-triage-agent v1.1.2 076ce19878ecd7e7ef0934dadb9ccd76594f77cdf9bfb29c429a3a85ac2ed85b
