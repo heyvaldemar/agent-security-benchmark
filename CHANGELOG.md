@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- The README says how the repository is built, as the fleet's other repositories do.
 - The Cypress Cloud triage boundary moves from v1.1.0 to v1.1.1 in `sources.lock` (17e60a3f..., verified with cosign and slsa-verifier). The two releases differ in `tests/e2e/checks.py`, its unit tests and plants, and a line each in three documents: v1.1.1 finds its planted note by the order that carries it and not by its words. The leg now holds each Cypress run to the release's own `checks.py cypress` in place of a check of this repository's. The recorded run in the README, 43122643626, was at v1.1.0.
 
 ### Added

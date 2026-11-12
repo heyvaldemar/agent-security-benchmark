@@ -171,6 +171,10 @@ Nothing beyond a machine with Docker. Everything runs on kind, on CPU, with no c
 
 The reasoning is in [docs/decisions](docs/decisions/README.md): one suite through every boundary and how each level is read, what is put beside the sandbox and why nothing inside it is changed, and why the reader is calibrated on every run. The rules an agent working on this repository is held to are in [AGENTS.md](AGENTS.md).
 
+## How this is built
+
+One maintainer and an AI agent. The agent writes most of the code; the decisions are mine, and so is the verification. Nothing merges on the agent's report that it works: it merges on the checks above, and each of them has been shown the failure it exists to catch. The rules the agent works under are in [AGENTS.md](AGENTS.md). Before the repository went public a review that was given the code and not its conclusions found planted violations that proved nothing: the copy each plant is made in left out the recorded legs, so the reader's checks failed in every copy, plant or no plant, and every one was reported caught. The recorded legs travel with the copy now, and a copy with nothing planted in it has to pass every check first.
+
 ## License
 
 [MIT](LICENSE).
