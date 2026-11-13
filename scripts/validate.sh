@@ -348,6 +348,9 @@ sys.exit(1 if bad else 0)
 PY
 }
 
+# Who signs a run's record: this repository's e2e workflow, on main.
+RECORDS_SIGNED_BY="https://github.com/heyvaldemar/agent-security-benchmark/.github/workflows/e2e.yml@refs/heads/main"
+
 check_numbers() {
   python3 scripts/numbers.py check || return 1
   # The check itself, shown a page it must refuse: the same README with one
@@ -360,6 +363,44 @@ check_numbers() {
     echo "a README with a count changed by hand passes the check, or carries no count to change"
     return 1
   fi
+  # Every signed record under docs/runs is the file its run signed: cosign
+  # holds it to the bundle beside it, as this repository's e2e workflow on
+  # main and nobody else's. The sentence that says "daily" takes its days
+  # from those bundles. Asked once for each pair of files: the answer is kept
+  # under .cache/records by the two files' hashes, so a copy with a byte
+  # changed in either is asked about again.
+  local rec key
+  for rec in docs/runs/*.json; do
+    [ -f "$rec.sigstore.json" ] || continue
+    key="$(python3 -c 'import hashlib, sys
+print("-".join(hashlib.sha256(open(p, "rb").read()).hexdigest() for p in sys.argv[1:]))' "$rec" "$rec.sigstore.json")"
+    [ -f ".cache/records/$key" ] && continue
+    if ! command -v cosign >/dev/null; then
+      /bin/rm -f "$copy"
+      echo "cosign is not on PATH to verify $rec (make check puts it there)"
+      return 1
+    fi
+    if ! cosign verify-blob "$rec" --bundle "$rec.sigstore.json" \
+        --certificate-identity "$RECORDS_SIGNED_BY" \
+        --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null 2>&1; then
+      /bin/rm -f "$copy"
+      echo "cosign does not verify $rec, with the bundle beside it, as signed by this repository's e2e workflow on main"
+      return 1
+    fi
+    mkdir -p .cache/records && : >".cache/records/$key"
+  done
+  # A word of cadence outside the block that earns it, and a run cited with
+  # no record of it here. Both in sentences no block makes, so that nothing
+  # but the rule each is for can refuse them.
+  local said
+  for said in 's/^## A run.s record, and its signature$/## A daily record, and its signature/' 's#/actions/runs/43170832351) did#/actions/runs/43170832352) did#'; do
+    sed "$said" README.md >"$copy"
+    if cmp -s README.md "$copy" || README="$copy" python3 scripts/numbers.py check >/dev/null; then
+      /bin/rm -f "$copy"
+      echo "a README changed by '$said' passes the check, or the text it changes is gone"
+      return 1
+    fi
+  done
   /bin/rm -f "$copy"
   # And the record itself: a run that owed three legs and reported two names
   # the third, in the record and in the sentence made from it.
@@ -386,6 +427,62 @@ try:
         bad.append("a leg whose job failed is not named as missing: %s" % made.get("missing"))
     if "sandbox/granite-4.0-1b" not in numbers.tables(made)["run"]:
         bad.append("the run's sentence does not name the leg that did not report")
+    # The sentence that says "daily" is made from scheduled runs' records, and
+    # refused, each time for its own reason, for one run, for a run the
+    # schedule did not start, for one that failed, for one with a leg
+    # missing, for one with no signature, for one changed after it was
+    # signed, for one run named twice and for two runs signed on one day.
+    import base64, hashlib
+    every = sorted(p for p in __import__("glob").glob("docs/runs/*.json") if not p.endswith(".sigstore.json"))
+    event = lambda p: json.load(open(p, encoding="utf-8"))["run"].get("event")
+    sched = [p for p in every if event(p) == "schedule" and os.path.exists(p + ".sigstore.json")]
+    pushed = [p for p in every if event(p) == "push" and os.path.exists(p + ".sigstore.json")]
+    def why(sources):
+        try:
+            numbers.scheduled(sources)
+        except ValueError as e:
+            return str(e)
+        return "given"
+    def changed(name, of, sign, **fields):
+        """A record with fields changed. Its bundle is the original's as it is
+        ("copied"), the original's with the digest of the new file written in
+        ("made": what a hand can forge and cosign refuses, used here so that
+        the rule under test is the only one in the way), or none (None)."""
+        path = os.path.join(work, name)
+        rec = json.load(open(of, encoding="utf-8"))
+        rec.update({k: v for k, v in fields.items() if k != "run_id"})
+        if "run_id" in fields:
+            rec["run"] = dict(rec["run"], id=fields["run_id"])
+        json.dump(rec, open(path, "w"))
+        if sign == "copied":
+            shutil.copy(of + ".sigstore.json", path + ".sigstore.json")
+        if sign == "made":
+            bundle = json.load(open(of + ".sigstore.json", encoding="utf-8"))
+            bundle["messageSignature"]["messageDigest"]["digest"] = base64.b64encode(
+                hashlib.sha256(open(path, "rb").read()).digest()).decode()
+            json.dump(bundle, open(path + ".sigstore.json", "w"))
+        return path
+    if len(sched) < 2 or not pushed:
+        bad.append("docs/runs holds no two signed records of scheduled runs and one of a pushed run to show the sentence")
+    else:
+        a, b = (json.load(open(p, encoding="utf-8")) for p in sched[:2])
+        line = numbers.scheduled(sched[:2])
+        if not all(x in line for x in ("Scheduled daily", a["run"]["url"], b["run"]["url"],
+                                       "%d of %d checks" % (a["checks_passed"], a["checks_passed"]))):
+            bad.append("the sentence made from two scheduled runs does not name them and their checks: %s" % line)
+        first, second = sched[0], sched[1]
+        for what, sources, reason in (
+                ("one scheduled run", [first], "needs two scheduled runs"),
+                ("a run started by a push", [first, pushed[0]], "not by the schedule"),
+                ("a scheduled run with a failed check", [first, changed("failed.json", second, "made", checks_failed=1)], "did not pass"),
+                ("a scheduled run with a leg missing", [first, changed("missing.json", second, "made", missing=["sandbox/qwen3.5-2b"])], "did not pass"),
+                ("a scheduled run with no signature beside its record", [first, changed("unsigned.json", second, None, suite_sha256="0")], "no signature beside"),
+                ("a record changed after it was signed", [first, changed("edited.json", second, "copied", suite_sha256="0")], "not the file the signature"),
+                ("one run named twice", [first, first], "named twice"),
+                ("two runs signed on one day", [first, changed("sameday.json", first, "made", run_id=1)], "on one day")):
+            said = why(sources)
+            if reason not in said:
+                bad.append("the word of cadence for %s: %s, and the reason owed is \"%s\"" % (what, said, reason))
     print("\n".join(bad) or "a record names the leg its run owed and did not report")
     sys.exit(1 if bad else 0)
 finally:

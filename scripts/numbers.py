@@ -11,6 +11,14 @@
                                    <!-- /numbers --> is what `tables` prints for
                                    that record; --write puts it there
 
+One block is made from several records, joined with "+", and is named
+`scheduled`: the one sentence that says "daily". It is refused unless every
+record it names is a scheduled run's, with every check passed and the
+signature made for it beside it, and there are at least two, of different
+runs on different days; and the README may carry a word of cadence nowhere
+else (AGENTS.md: such a word is written only after two scheduled runs in a
+row have passed).
+
 No number in the README is typed by hand (AGENTS.md). A record is what the
 run's own jobs uploaded, kept in the repository under the run's id, so a
 table can be made again from it by anyone and `scripts/validate.sh numbers`
@@ -18,7 +26,10 @@ can fail when the README says something the record does not.
 
 Standard library only.
 """
+import base64
+import datetime
 import glob
+import hashlib
 import json
 import os
 import re
@@ -30,6 +41,12 @@ BOUNDARIES = {"sandbox": "kubernetes-ai-agent-sandbox", "flagship": "kubernetes-
               "cypress": "cypress-cloud-triage-agent"}
 WHERE = {"flagship": "At the flagship", "sandbox": "At the sandbox", "cypress": "In front of Cypress Cloud"}
 BLOCK = re.compile(r"(<!-- numbers: (\S+) (\S+) -->\n)(.*?)(<!-- /numbers -->)", re.S)
+MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December")
+COUNT = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven"}
+# A word of cadence. The README carries one only inside the block that the
+# records of scheduled runs earn.
+CADENCE = re.compile(r"\b(hourly|daily|nightly|weekly|monthly|every (?:hour|day|night|week|month))\b", re.I)
 
 
 def expected():
@@ -195,6 +212,76 @@ def tables(rec):
     return out
 
 
+def signed_on(path):
+    """The day the transparency log took a record's signature, from the bundle
+    its run left beside it: a record carries no date of its own. The bundle
+    has to be the one made for these bytes, so a record changed after it was
+    signed, or given another record's bundle, is refused here. Whether the
+    signature in the bundle is this repository's workflow's, and the log's
+    time the log's, is cosign's to say: `scripts/validate.sh numbers` asks it
+    of every signed record under docs/runs before it runs this."""
+    bundle = json.load(open(path + ".sigstore.json", encoding="utf-8"))
+    try:
+        digest = bundle["messageSignature"]["messageDigest"]
+        mine = (digest["algorithm"] == "SHA2_256"
+                and base64.b64decode(digest["digest"]) == hashlib.sha256(open(path, "rb").read()).digest())
+        at = int(bundle["verificationMaterial"]["tlogEntries"][0]["integratedTime"])
+    except (KeyError, IndexError, TypeError, ValueError):
+        raise ValueError("the file beside %s is no signature with a transparency log's entry in it" % os.path.basename(path))
+    if not mine:
+        raise ValueError("%s is not the file the signature beside it was made for" % os.path.basename(path))
+    return datetime.datetime.fromtimestamp(at, datetime.timezone.utc).date()
+
+
+def series(items):
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def scheduled(sources):
+    """The sentence that says "daily", from the records of the first scheduled
+    runs. Refused, with the reason, unless at least two runs are named, each
+    started by the schedule, each with every check passed and no leg missing,
+    each with the signature made for it beside it, no run named twice and no
+    two signed on one day. That they came in a row is the
+    `status` branch's to say (`scheduled_streak`); what is held here is that
+    every run the sentence names was the schedule's and passed."""
+    if len(sources) < 2:
+        raise ValueError("a word of cadence needs two scheduled runs, and %d is named" % len(sources))
+    runs = []
+    for source in sources:
+        path = os.path.join(ROOT, source)
+        rec = json.load(open(path, encoding="utf-8"))
+        run, passed, failed = rec["run"], rec["checks_passed"], rec["checks_failed"]
+        if run.get("event") != "schedule":
+            raise ValueError("run %s was started by %s, not by the schedule" % (run["id"], run.get("event")))
+        if failed or not passed or rec.get("missing"):
+            raise ValueError("run %s did not pass: %d of %d checks, %d legs missing"
+                             % (run["id"], passed, passed + failed, len(rec.get("missing") or [])))
+        try:
+            day = signed_on(path)
+        except OSError:
+            raise ValueError("run %s has no signature beside %s to take its day from" % (run["id"], source))
+        runs.append((day, run, passed))
+    runs.sort(key=lambda x: (x[0], x[1]["id"]))
+    ids = [run["id"] for _, run, _ in runs]
+    days = [day for day, _, _ in runs]
+    # One run named twice is one run, and two runs on one day are not two days.
+    if len(set(ids)) != len(ids):
+        raise ValueError("a run is named twice: %s" % ", ".join(str(i) for i in ids))
+    if len(set(days)) != len(days):
+        raise ValueError("two of the runs named were signed on one day: %s" % ", ".join(str(d) for d in days))
+    if len({(d.year, d.month) for d in days}) == 1:
+        when = "%s %s %d" % (series([str(d.day) for d in days]), MONTHS[days[0].month - 1], days[0].year)
+    else:
+        when = series(["%d %s %d" % (d.day, MONTHS[d.month - 1], d.year) for d in days])
+    counts = [n for _, _, n in runs]
+    held = ("held %d of %d checks each" % (counts[0], counts[0]) if len(set(counts)) == 1
+            else "held every check (%s)" % ", ".join("%d of %d" % (n, n) for n in counts))
+    return "Scheduled daily; the first %s scheduled runs, %s (%s), %s." % (
+        COUNT.get(len(runs), str(len(runs))), when,
+        series(["[%s](%s)" % (run["id"], run["url"]) for _, run, _ in runs]), held)
+
+
 def check(write):
     path = os.environ.get("README", os.path.join(ROOT, "README.md"))
     text = open(path, encoding="utf-8").read()
@@ -202,11 +289,21 @@ def check(write):
 
     def block(m):
         source, name = m.group(2), m.group(3)
-        try:
-            made = cache.setdefault(source, tables(json.load(open(os.path.join(ROOT, source), encoding="utf-8"))))
-        except (OSError, ValueError) as e:
-            bad.append("README takes numbers from %s, which cannot be read: %s" % (source, e))
-            return m.group(0)
+        if name == "scheduled":
+            try:
+                made = {name: scheduled(source.split("+"))}
+            except OSError as e:
+                bad.append("README takes its word of cadence from %s, which cannot be read: %s" % (source, e))
+                return m.group(0)
+            except ValueError as e:
+                bad.append("README's word of cadence is not earned: %s" % e)
+                return m.group(0)
+        else:
+            try:
+                made = cache.setdefault(source, tables(json.load(open(os.path.join(ROOT, source), encoding="utf-8"))))
+            except (OSError, ValueError) as e:
+                bad.append("README takes numbers from %s, which cannot be read: %s" % (source, e))
+                return m.group(0)
         if name not in made:
             bad.append("README asks %s for a table named %s" % (source, name))
             return m.group(0)
@@ -218,13 +315,22 @@ def check(write):
     new = BLOCK.sub(block, text)
     if not BLOCK.search(text):
         bad.append("README carries no numbers from a run's record")
+    # A run the README cites has its record here, whatever is said of it.
+    for run in sorted(set(re.findall(r"/actions/runs/(\d+)", new))):
+        if not os.path.exists(os.path.join(ROOT, "docs", "runs", run + ".json")):
+            bad.append("README cites run %s, and docs/runs/%s.json is not there" % (run, run))
+    # A word of cadence anywhere but in the block that earns it.
+    rest = BLOCK.sub(lambda m: "" if m.group(3) == "scheduled" else m.group(0), new)
+    for n, line in enumerate(rest.splitlines(), 1):
+        for word in CADENCE.findall(line):
+            bad.append('README says "%s" outside the block that scheduled runs\' records earn: %s' % (word, line.strip()[:80]))
     if write and new != text:
         open(path, "w", encoding="utf-8").write(new)
     for line in bad:
         print("  FAIL  " + line)
     if not bad:
         print("  ok    every number in the README's tables is its run's record: %s"
-              % ", ".join(sorted(set(m.group(2) for m in BLOCK.finditer(new)))))
+              % ", ".join(sorted(set(s for m in BLOCK.finditer(new) for s in m.group(2).split("+")))))
     return 1 if bad else 0
 
 
