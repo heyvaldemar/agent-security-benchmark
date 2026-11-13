@@ -133,7 +133,7 @@ cosign verify-blob runs/<run id>.json --bundle runs/<run id>.json.sigstore.json 
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-The certificate names the workflow, the commit and the run that made the file. Records of runs made before the repository was public carry no signature: a public transparency log is no place for a private repository's name. The first signed record is the run's above, and both of its files are also in `docs/runs/`.
+The certificate names the workflow, the commit and the run that made the file. A run that failed signs its record too, as [43166596851](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43166596851) and [43170832351](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43170832351) did: the signature says who made the file, and the file says how the run ended (`checks_failed`, `missing`). Records of runs made before the repository was public carry no signature: a public transparency log is no place for a private repository's name. The first signed record is the run's above, and both of its files are also in `docs/runs/`.
 
 ## Quickstart
 
