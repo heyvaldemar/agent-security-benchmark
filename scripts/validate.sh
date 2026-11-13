@@ -132,6 +132,38 @@ try:
         bad.append("a stand-in's leg with no attempt in it is counted as read as it is")
     if boundaries["first"]["id"] != 1 or boundaries["last"]["id"] != 2:
         bad.append("the window does not name its first and last run")
+    # The API or the artifact storage answering "later" is asked again after
+    # a pause, and an answer that is final is raised at once (run 43453695229
+    # failed on one 503 from the storage).
+    import contextlib, io, types, urllib.error
+    def asked_with(answers):
+        asked, slept = [], []
+        def once(url):
+            asked.append(url)
+            a = answers[min(len(asked), len(answers)) - 1]
+            if isinstance(a, int):
+                raise urllib.error.HTTPError(url, a, "planted", {}, None)
+            if a is None:
+                raise urllib.error.URLError("planted")
+            return a
+        status.once, status.time = once, types.SimpleNamespace(sleep=slept.append)
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                got = status.get("/planted")
+        except urllib.error.HTTPError as e:
+            got = e.code
+        except urllib.error.URLError:
+            got = "no answer"
+        return got, len(asked), slept
+    pauses = list(status.PAUSES)
+    if asked_with([503, 503, b'{"ok": 1}']) != ({"ok": 1}, 3, pauses[:2]):
+        bad.append("a storage that answers 503 twice and then answers is not read")
+    if asked_with([None, b'{"ok": 1}']) != ({"ok": 1}, 2, pauses[:1]):
+        bad.append("a storage that does not answer once and then answers is not read")
+    if asked_with([503]) != (503, len(pauses) + 1, pauses):
+        bad.append("a storage that keeps answering 503 is not asked %d times and then raised" % (len(pauses) + 1))
+    if asked_with([404]) != (404, 1, []):
+        bad.append("an answer that is final (404) is asked for again")
     print("\n".join(bad) or "two runs of recorded legs add up: %s" % b["line"])
     sys.exit(1 if bad else 0)
 finally:

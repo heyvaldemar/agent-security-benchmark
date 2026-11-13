@@ -31,10 +31,12 @@ rule hides. Nothing here is typed by hand: every number is read from GitHub
 at the time it is written.
 """
 import datetime
+import http.client
 import io
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -42,6 +44,12 @@ import zipfile
 API = "https://api.github.com"
 WINDOW_DAYS = 30
 STANDINS = ("obedient", "deaf")
+# The API's and the artifact storage's ways of saying "later". Run 43453695229
+# failed on one of them, the storage's 503 "Egress is over the account
+# limit", when nothing was asked twice.
+LATER = (429, 500, 502, 503, 504)
+# Seconds before the second, the third and the fourth time of asking.
+PAUSES = (5, 20, 60)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -49,20 +57,44 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def get(url, raw=False):
+def once(url):
     req = urllib.request.Request(url if url.startswith("http") else API + url)
     req.add_header("Authorization", "Bearer " + os.environ["GITHUB_TOKEN"])
     req.add_header("Accept", "application/vnd.github+json")
     try:
         with urllib.request.build_opener(_NoRedirect).open(req, timeout=60) as r:
-            body = r.read()
+            return r.read()
     except urllib.error.HTTPError as e:
         # An artifact download answers with a redirect to signed storage,
         # which rejects the API's Authorization header: follow it without.
         if e.code not in (301, 302, 303, 307, 308) or not e.headers.get("Location"):
             raise
         with urllib.request.urlopen(e.headers["Location"], timeout=120) as r:
-            body = r.read()
+            return r.read()
+
+
+def get(url, raw=False):
+    """One answer from the API. An answer that says "later", or no answer, is
+    asked for again from the start after a pause: the signed address an
+    artifact download redirects to is short-lived, so it is the API that is
+    asked again, never that address. What still fails after the last pause
+    is raised, and no window is written with a run missing from it."""
+    for pause in PAUSES + (None,):
+        try:
+            body = once(url)
+            break
+        except urllib.error.HTTPError as e:
+            if e.code not in LATER or pause is None:
+                raise
+            said = "HTTP %d %s" % (e.code, str(e.reason)[:80])
+        except (OSError, http.client.HTTPException) as e:
+            # No answer, or one that broke off while it was being read.
+            if pause is None:
+                raise
+            said = "nothing (%s)" % type(e).__name__
+        # The path that was asked for, never the signed address behind it.
+        print("asking again in %d s: %s answered %s" % (pause, url.split("?")[0], said), file=sys.stderr)
+        time.sleep(pause)
     return body if raw else json.loads(body)
 
 
