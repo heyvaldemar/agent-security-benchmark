@@ -139,6 +139,8 @@ cosign verify-blob runs/<run id>.json --bundle runs/<run id>.json.sigstore.json 
 
 The certificate names the workflow, the commit and the run that made the file. A run that failed signs its record too, as [43166596851](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43166596851) and [43170832351](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43170832351) did: the signature says who made the file, and the file says how the run ended (`checks_failed`, `missing`). Records of runs made before the repository was public carry no signature: a public transparency log is no place for a private repository's name. The first signed record is the run's above, and both of its files are also in `docs/runs/`.
 
+Each time the Status workflow writes the branch, a second job with no token and no permission clones it the way a reader would and runs `scripts/stranger.sh` on it: cosign has to verify every signed record there, refuse a copy of each with one byte appended, and find no record without a signature after the first signed one.
+
 ## Quickstart
 
 Docker, Python 3 and `make`. The pinned tools (kind, kubectl, cosign, slsa-verifier) are downloaded into `.cache/bin`, each checked against its sha256.

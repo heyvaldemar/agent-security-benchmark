@@ -34,6 +34,12 @@
 #   images    every image in manifests/ and the e2e is referenced by digest
 #   numbers   every table in the README is what scripts/numbers.py makes from
 #             the record of the run it names (docs/runs/)
+#   stranger  scripts/stranger.sh, which the Status workflow runs on a clone
+#             of the branch `status` in a job with no token: it accepts the
+#             signed records under docs/runs and refuses a changed record, a
+#             record beside another's bundle, a lost signature, an empty
+#             directory and a verifier that accepts anything
+#             (tests/static/stranger_cases.py)
 #   prose     no em dash and no invisible character in anything tracked,
 #             recorded legs and runs apart: a model's words are evidence,
 #             not prose
@@ -490,6 +496,25 @@ finally:
 PY
 }
 
+check_stranger() {
+  if ! command -v cosign >/dev/null; then
+    echo "cosign is not on PATH (make check puts it there)"
+    return 1
+  fi
+  # One signer in both places: the records the page's numbers are read from
+  # and the records a stranger is told to verify.
+  if ! grep -qxF "SIGNED_BY=\"$RECORDS_SIGNED_BY\"" scripts/stranger.sh; then
+    echo "scripts/stranger.sh and the numbers check name different signers"
+    return 1
+  fi
+  local said
+  if ! said="$(./scripts/stranger.sh docs/runs)"; then
+    echo "scripts/stranger.sh refuses the records under docs/runs: $said"
+    return 1
+  fi
+  python3 tests/static/stranger_cases.py
+}
+
 check_prose() {
   python3 - <<'PY'
 import os, re, subprocess, sys
@@ -520,7 +545,7 @@ PY
 }
 
 checks=("$@")
-[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams verdicts reader status standin agent models walls images numbers prose)
+[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams verdicts reader status standin agent models walls images numbers stranger prose)
 failed=0
 for c in "${checks[@]}"; do
   if "check_$c"; then echo "-- $c: ok"; else echo "-- $c: FAILED"; failed=1; fi

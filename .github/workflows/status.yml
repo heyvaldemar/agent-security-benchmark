@@ -72,3 +72,34 @@ jobs:
           # command line, which any process on the runner can read.
           GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
             git push -q -f "https://github.com/$REPO.git" status
+
+  stranger:
+    name: Read the branch back as a stranger would
+    # What the job above wrote is cloned with no credential, and cosign is
+    # asked about every signed record on it and about a copy of each with one
+    # byte appended (scripts/stranger.sh). A record that reached the branch
+    # changed, or without its signature, fails here on the day it happens.
+    needs: status
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # No token and no permission: what this job can read, anyone can.
+    permissions: {}
+    steps:
+      - name: This commit's scripts, fetched the way anyone can
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          git init -q "$RUNNER_TEMP/code"
+          git -C "$RUNNER_TEMP/code" fetch -q --depth 1 "https://github.com/$REPO.git" "$GITHUB_SHA"
+          git -C "$RUNNER_TEMP/code" checkout -q FETCH_HEAD
+
+      - name: Install the pinned tools
+        run: |
+          "$RUNNER_TEMP/code/scripts/install-tools.sh" >> "$GITHUB_PATH"
+
+      - name: Every signed record on the branch, and a copy of each with a byte appended
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          git clone -q --depth 1 --branch status "https://github.com/$REPO.git" "$RUNNER_TEMP/branch"
+          "$RUNNER_TEMP/code/scripts/stranger.sh" "$RUNNER_TEMP/branch/runs"
