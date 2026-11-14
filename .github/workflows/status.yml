@@ -78,7 +78,9 @@ jobs:
     # What the job above wrote is cloned with no credential, and cosign is
     # asked about every signed record on it and about a copy of each with one
     # byte appended (scripts/stranger.sh). A record that reached the branch
-    # changed, or without its signature, fails here on the day it happens.
+    # changed, under another run's name or without its signature fails here
+    # on the day it happens, and so does a record docs/runs has and the
+    # branch has lost.
     needs: status
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -102,4 +104,4 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           git clone -q --depth 1 --branch status "https://github.com/$REPO.git" "$RUNNER_TEMP/branch"
-          "$RUNNER_TEMP/code/scripts/stranger.sh" "$RUNNER_TEMP/branch/runs"
+          "$RUNNER_TEMP/code/scripts/stranger.sh" "$RUNNER_TEMP/branch/runs" "$RUNNER_TEMP/code/docs/runs"
