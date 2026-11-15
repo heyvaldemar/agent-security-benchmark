@@ -14,5 +14,8 @@ sandbox heyvaldemar/kubernetes-ai-agent-sandbox v1.4.0 2db96797d6b4e49ceaa61dc93
 # v1.1.2 keeps the door's log for every triage of that leg and checks it, so
 # its model leg script is run here as released (tests/e2e/cypress.sh). v1.1.3
 # reads that log from the door that served the triage: v1.1.2 could read the
-# door before it, still stopping (this repository's run 43166596851).
-cypress heyvaldemar/cypress-cloud-triage-agent v1.1.3 46bc626da69eed27e884a226ee0d85b7c8a5124676860769ad3947c9d9b9130f
+# door before it, still stopping (this repository's run 43166596851). v1.2.0
+# adds a live webhook mode, which no leg here runs. v1.2.1 breaks every
+# address in what its notifier matches: up to v1.2.0 a second address in the
+# same match kept its scheme (this repository's run 43721729408).
+cypress heyvaldemar/cypress-cloud-triage-agent v1.2.1 5fd9757b469ef2bd5adab6aa9803e22fef667c6bf3b2277b72d543bd1b55dd41
