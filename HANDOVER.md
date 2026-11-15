@@ -1,6 +1,6 @@
 # Hand-over: what is left before v1.0.0, and after it
 
-Written 2026-11-14 for whoever continues this work from another machine, a person or an agent. Nothing a continuation needs is on anyone's laptop: the rules, the decisions, the checks and every run's record are in this repository. This note says where they are, what is still open, and what cost time. It sits on a branch of its own so that `main` carries only what the benchmark claims; a push to this branch starts no workflow.
+Written 2026-11-14, updated 2026-11-15, for whoever continues this work from another machine, a person or an agent. Nothing a continuation needs is on anyone's laptop: the rules, the decisions, the checks and every run's record are in this repository. This note says where they are, what is still open, and what cost time. It sits on a branch of its own so that `main` carries only what the benchmark claims; a push to this branch starts no workflow.
 
 ## Where things are
 
@@ -8,16 +8,25 @@ Written 2026-11-14 for whoever continues this work from another machine, a perso
 - **The decisions.** `docs/decisions/`, three records. `docs/threat-model.md` says what a run shows and what it leaves open.
 - **What changed and what was found.** `CHANGELOG.md`, `[Unreleased]`. The release notes of v1.0.0 are made from it.
 - **Every run.** The branch `status` keeps each run's record under `runs/` with its signature, and the 30-day sums in `status.json`. The Status workflow reads the branch back in a job with no token after each write (`scripts/stranger.sh`).
-- **The checks.** `make check` runs the fourteen static checks and shows each its planted violations (`tests/static/plants.tsv`). The Verify workflow runs the same on every push and pull request to `main`.
+- **The checks.** `make check` runs the fifteen static checks and shows each its planted violations (`tests/static/plants.tsv`). The Verify workflow runs the same on every push and pull request to `main`.
 
-## State on 2026-11-14
+## State on 2026-11-15
 
 - Pins in `sources.lock`: flagship v1.9.0, sandbox v1.4.0, Cypress Cloud triage v1.1.3.
-- Three scheduled runs in a row passed: [43246322896](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43246322896) on 12 November, [43444481256](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43444481256) on 13 November, [43600447268](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43600447268) on 14 November, 1405 of 1405 checks each. The README's sentence names the first two and stays as it is.
+- The first three scheduled runs passed: [43246322896](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43246322896) on 12 November, [43444481256](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43444481256) on 13 November, [43600447268](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43600447268) on 14 November, 1405 of 1405 checks each. The README's sentence names the first two and stays as it is.
+- The fourth, [43721729408](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43721729408) on 15 November, failed on 1 of 1405: one check of the Cypress release's own model leg, in one triage. Every gate of this repository's own held, and nothing reached the outside. The changelog has the entry. It is that release's logic and was reported to that repository the same day.
 - Two of the signed records on `status` are from runs that failed on 12 November: a failed run signs its record too. A count of signed records that means "passed" has to say "passing".
-- No release yet. Status of the claims: the daily run is held, the tag is a target.
+- No release yet. Status of the claims: the run is scheduled daily and its first three days passed (held); an unbroken run of green days is not a claim; the tag is a target.
 
 ## Open, in order
+
+### 0. Move the Cypress pin (waits for that repository's release with the fix)
+
+Until then a scheduled run can fail the way the run of 15 November did. The check stays as it is: a check is never weakened to get a run green.
+
+1. Verify the release from an empty directory (sha256, `cosign verify-blob`, `slsa-verifier verify-artifact`) and diff its tree against v1.1.3. A release after v1.1.3 already exists, v1.2.0, which adds a live webhook mode: read what it changes in what the leg reads (the summary line's fields, the call lines, the collector's `event: request`, the door's audit).
+2. Change the Cypress line in `sources.lock`, then `make check`: the `seams` check says whether the working copy still differs from the release at its seams only and whether `boundaries/cypress.steps` is still the release's own bring-up.
+3. One run on a test branch (`gh workflow run e2e.yml --ref <name> -f legs=cypress`), then `main` when no scheduled run is queued. The README's row for that boundary and the changelog name both tags.
 
 ### 1. Move the flagship pin (in progress, waits for the flagship's next release)
 
