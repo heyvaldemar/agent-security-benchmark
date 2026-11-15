@@ -12,25 +12,19 @@ Written 2026-11-14, updated 2026-11-15, for whoever continues this work from ano
 
 ## State on 2026-11-15
 
-- Pins in `sources.lock`: flagship v1.9.0, sandbox v1.4.0, Cypress Cloud triage v1.1.3.
+- Pins in `sources.lock`: flagship v1.9.0, sandbox v1.4.0, Cypress Cloud triage v1.2.1.
 - The first three scheduled runs passed: [43246322896](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43246322896) on 12 November, [43444481256](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43444481256) on 13 November, [43600447268](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43600447268) on 14 November, 1405 of 1405 checks each. The README's sentence names the first two and stays as it is.
-- The fourth, [43721729408](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43721729408) on 15 November, failed on 1 of 1405: one check of the Cypress release's own model leg, in one triage. Every gate of this repository's own held, and nothing reached the outside. The changelog has the entry. It is that release's logic and was reported to that repository the same day.
+- The fourth, [43721729408](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43721729408) on 15 November, failed on 1 of 1405: one check of the Cypress release's own model leg, in one triage. Its notifier left the scheme of an address written inside another one standing, and its checker counted it. Every gate of this repository's own held, and nothing reached the outside. It was reported to that repository the same day, fixed there in v1.2.1 the same day, and the pin moved to v1.2.1 in c8e3da1; the first full run on it, [43760334086](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43760334086), passed with 1405 of 1405. The changelog has both entries.
 - Two of the signed records on `status` are from runs that failed on 12 November: a failed run signs its record too. A count of signed records that means "passed" has to say "passing".
-- No release yet. Status of the claims: the run is scheduled daily and its first three days passed (held); an unbroken run of green days is not a claim; the tag is a target.
+- No release yet. Status of the claims: the run is scheduled daily and its first three days passed (held); an unbroken run of green scheduled days is not a claim, and a word of cadence waits for two scheduled runs in a row again; the tag is a target.
 
 ## Open, in order
-
-### 0. Move the Cypress pin (waits for that repository's release with the fix)
-
-Until then a scheduled run can fail the way the run of 15 November did. The check stays as it is: a check is never weakened to get a run green.
-
-1. Verify the release from an empty directory (sha256, `cosign verify-blob`, `slsa-verifier verify-artifact`) and diff its tree against v1.1.3. A release after v1.1.3 already exists, v1.2.0, which adds a live webhook mode: read what it changes in what the leg reads (the summary line's fields, the call lines, the collector's `event: request`, the door's audit).
-2. Change the Cypress line in `sources.lock`, then `make check`: the `seams` check says whether the working copy still differs from the release at its seams only and whether `boundaries/cypress.steps` is still the release's own bring-up.
-3. One run on a test branch (`gh workflow run e2e.yml --ref <name> -f legs=cypress`), then `main` when no scheduled run is queued. The README's row for that boundary and the changelog name both tags.
 
 ### 1. Move the flagship pin (in progress, waits for the flagship's next release)
 
 The pin moves when that release is published and has been verified by someone who did not make it. Until then it stays at v1.9.0.
+
+The Cypress pin's move on 15 November (c8e3da1) is the worked example: verify from an empty directory, classify every changed file against the old tag (which differ only in an image digest, which the leg runs, which it never touches), `sources.lock`, `make check`, the one boundary's legs on a test branch, then `main`.
 
 1. Verify the release from an empty directory: the sha256 of `<repo>-<tag>.tar.gz`, `cosign verify-blob` with its bundle, `slsa-verifier verify-artifact` with its provenance. Diff its tree against v1.9.0 and read what changed at the three seams (`scripts/seams.py`).
 2. Change the flagship's line in `sources.lock` (tag and sha256), then `make check`. The `seams` check says whether the three seams still hold and whether `boundaries/flagship.steps` is still the release's own bring-up, command for command. If the release's commands changed, the steps file follows the release, never the other way round.
