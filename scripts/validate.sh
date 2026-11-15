@@ -34,6 +34,10 @@
 #   images    every image in manifests/ and the e2e is referenced by digest
 #   numbers   every table in the README is what scripts/numbers.py makes from
 #             the record of the run it names (docs/runs/)
+#   gate      the sandbox release's agent Job starts its agent only behind
+#             its init container wait-for-the-wall, the leg applies that
+#             Job under another name and nothing else, and admission is
+#             shown the same Job (tests/static/gate_cases.py)
 #   stranger  scripts/stranger.sh, which the Status workflow runs on a clone
 #             of the branch `status` in a job with no token: it accepts the
 #             signed records under docs/runs and refuses a changed record, a
@@ -496,6 +500,8 @@ finally:
 PY
 }
 
+check_gate() { python3 tests/static/gate_cases.py; }
+
 check_stranger() {
   if ! command -v cosign >/dev/null; then
     echo "cosign is not on PATH (make check puts it there)"
@@ -545,7 +551,7 @@ PY
 }
 
 checks=("$@")
-[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams verdicts reader status standin agent models walls images numbers stranger prose)
+[ ${#checks[@]} -eq 0 ] && checks=(suite sources seams verdicts reader status standin agent models walls gate images numbers stranger prose)
 failed=0
 for c in "${checks[@]}"; do
   if "check_$c"; then echo "-- $c: ok"; else echo "-- $c: FAILED"; failed=1; fi
