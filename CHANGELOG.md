@@ -65,3 +65,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - cypress-cloud-triage-agent v1.0.0 holds its scripted agent only. The model leg this benchmark needs is on that repository's main and in no release, so the suite is bound for that boundary and no leg runs it yet.
 - kubernetes-llm-inference-gateway holds no tool and no identity: nothing an agent acts through. It is not a boundary in this benchmark's sense and gets no row.
 - The flagship's agent offers a model only the tools its MCP server lists, so a plant cannot ask it for a tool that was not granted. That ask is not bound there, and its cell is empty by design, not a refusal.
+
+### Security
+
+- **A release is verified for its exact signer** (3d5a792). `.github/workflows/release-assets.yml` checks the signature against this repository's `release-assets.yml` on the ref the run ran on; before, any workflow of the repository on any branch passed. A changed archive must now be refused in the tool's own words, so Sigstore out of reach or a missing tool fails the job instead of passing it. A run started by hand runs only from `main`.
+
