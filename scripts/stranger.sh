@@ -7,9 +7,12 @@
 #     a signed record under another run's name is refused;
 #   - cosign holds every signed record to the bundle beside it, as signed by
 #     this repository's e2e workflow on main and nobody else's;
-#   - cosign refuses a copy of each with one byte appended: a verifier that
-#     accepts anything would pass the line above, and so would a copy that
-#     was never made, so the copy is read back before it is shown;
+#   - cosign refuses a copy of each with one byte appended, and says it is
+#     because the copy changed: a verifier that accepts anything would pass
+#     the line above; so would a copy that was never made, so the copy is
+#     read back before it is shown; and so would a cosign that failed for
+#     another reason (no network, Sigstore unreachable), so a refusal counts
+#     only in cosign's own words for a changed file;
 #   - a record with no signature is one of the eight made before the
 #     repository was public, and has the sha256 this script carries for it;
 #   - a bundle has its record beside it;
@@ -29,6 +32,10 @@ dir="${1:?usage: stranger.sh <directory of records> [<directory of records it mu
 kept="${2:-}"
 SIGNED_BY="https://github.com/heyvaldemar/agent-security-benchmark/.github/workflows/e2e.yml@refs/heads/main"
 ISSUER="https://token.actions.githubusercontent.com"
+# What cosign v3.1 says of a file that is not the one its bundle signed. The
+# version is pinned in tools.lock; an update that rewords it turns this check
+# red, which is the safe way to find out.
+CHANGED="invalid signature when validating ASN.1 encoded signature"
 # The runs recorded before the repository went public on 2026-11-12, when a
 # record was not signed: a public transparency log is no place for a private
 # repository's name. A list, because a rule read from the directory under
@@ -152,8 +159,14 @@ for rec in "$dir"/*.json; do
     bad=1
     continue
   fi
-  if ask "$work/changed.json" "$bundle"; then
+  rc=0
+  said="$(cosign verify-blob "$work/changed.json" --bundle "$bundle" --certificate-identity "$SIGNED_BY" \
+    --certificate-oidc-issuer "$ISSUER" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ]; then
     echo "$name: cosign accepts a copy with one byte appended"
+    bad=1
+  elif [ "${said#*"$CHANGED"}" = "$said" ]; then
+    echo "$name: cosign refused the copy with one byte appended without saying it was changed: a refusal for another reason proves nothing"
     bad=1
   fi
 done

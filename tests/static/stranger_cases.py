@@ -37,6 +37,10 @@ fail, and each is a case here, made from the signed records under docs/runs:
                        bytes under its name in the first
     accepts anything   a `cosign` that exits 0 whatever it is asked: the copy
                        with a byte appended is accepted, and that is a failure
+    another reason     a `cosign` that verifies the record and then fails on
+                       the copy for a reason of its own (no network): a
+                       refusal that does not say the copy changed proves
+                       nothing
     no copy            a place where the copy cannot be written: cosign
                        would refuse what it was shown, having been shown
                        nothing
@@ -158,6 +162,8 @@ case("two files, a name", as_kept, "hold different files under this name",
      kept=lambda k: (put(k, A), changed(k, OLD, bundle=False)))
 case("accepts anything", lambda d: put(d, A), "cosign accepts a copy with one byte appended",
      first_on_path=stub("cosign"))
+case("another reason", lambda d: put(d, A), "without saying it was changed",
+     first_on_path=stub("cosign", '#!/bin/sh\ncase "$2" in */changed.json) echo "Error: network is unreachable" >&2; exit 1 ;; esac\nexit 0\n'))
 # A `mktemp` that answers with a path under a file: nothing can be written
 # there, by root either.
 case("no copy", lambda d: put(d, A), "the copy with one byte appended could not be made",
@@ -196,5 +202,5 @@ else:
 if failed:
     print("\n".join(failed))
     sys.exit(1)
-print("scripts/stranger.sh accepts the records as kept and refuses seventeen directories, each for its reason; "
+print("scripts/stranger.sh accepts the records as kept and refuses eighteen directories, each for its reason; "
       "the Status workflow runs it on a clone of the branch, with no token")
