@@ -1,6 +1,6 @@
 # Hand-over: what is left before v1.0.0, and after it
 
-Written 2026-11-14, updated 2026-11-15, for whoever continues this work from another machine, a person or an agent. Nothing a continuation needs is on anyone's laptop: the rules, the decisions, the checks and every run's record are in this repository. This note says where they are, what is still open, and what cost time. It sits on a branch of its own so that `main` carries only what the benchmark claims; a push to this branch starts no workflow.
+Written 2026-11-14, updated 2026-11-16, for whoever continues this work from another machine, a person or an agent. Nothing a continuation needs is on anyone's laptop: the rules, the decisions, the checks and every run's record are in this repository. This note says where they are, what is still open, and what cost time. It sits on a branch of its own so that `main` carries only what the benchmark claims; a push to this branch starts no workflow.
 
 ## Where things are
 
@@ -10,12 +10,13 @@ Written 2026-11-14, updated 2026-11-15, for whoever continues this work from ano
 - **Every run.** The branch `status` keeps each run's record under `runs/` with its signature, and the 30-day sums in `status.json`. The Status workflow reads the branch back in a job with no token after each write (`scripts/stranger.sh`).
 - **The checks.** `make check` runs the fifteen static checks and shows each its planted violations (`tests/static/plants.tsv`). The Verify workflow runs the same on every push and pull request to `main`.
 
-## State on 2026-11-15
+## State on 2026-11-16
 
 - Pins in `sources.lock`: flagship v1.9.0, sandbox v1.4.0, Cypress Cloud triage v1.2.1.
 - The first three scheduled runs passed: [43246322896](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43246322896) on 12 November, [43444481256](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43444481256) on 13 November, [43600447268](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43600447268) on 14 November, 1405 of 1405 checks each. The README's sentence names the first two and stays as it is.
 - The fourth, [43721729408](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43721729408) on 15 November, failed on 1 of 1405: one check of the Cypress release's own model leg, in one triage. Its notifier left the scheme of an address written inside another one standing, and its checker counted it. Every gate of this repository's own held, and nothing reached the outside. It was reported to that repository the same day, fixed there in v1.2.1 the same day, and the pin moved to v1.2.1 in c8e3da1; the first full run on it, [43760334086](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43760334086), passed with 1405 of 1405. The changelog has both entries.
 - Two of the signed records on `status` are from runs that failed on 12 November: a failed run signs its record too. A count of signed records that means "passed" has to say "passing".
+- The fifth, [43900805826](https://github.com/heyvaldemar/agent-security-benchmark/actions/runs/43900805826) on 16 November, is red with no check failed: the flagship's leg with one model stopped in the release's own bring-up when a registry outside reset a connection, and the record names the leg in `missing`. Reported to that repository; the run was not started again.
 - No release yet. Status of the claims: the run is scheduled daily and its first three days passed (held); an unbroken run of green scheduled days is not a claim, and a word of cadence waits for two scheduled runs in a row again; the tag is a target.
 
 ## Open, in order
@@ -59,7 +60,9 @@ Declared inputs for runs made outside CI: a second lock, a path for the model se
 ## What cost time
 
 - GitHub starts the scheduled e2e run eight to nine hours after its cron time. Do not read a late run as a missing one.
-- A push to `main` cancels an e2e run in progress there (one concurrency group). Do not push anything but words while a scheduled run is queued or running. A change to `*.md` or `docs/` alone starts Verify and not the e2e; a change to a script or a workflow starts both.
+- On `main` the e2e runs wait for each other: one runs, one waits, and a third push that starts a run cancels the one that waits, which can be the day's scheduled run. Do not push anything but words while a scheduled run is queued or running, and tell whoever else pushes here. A change to `*.md` or `docs/` alone starts Verify and not the e2e; a change to a script or a workflow starts both.
+- A scheduled run is not started again by hand. Its record is signed as it ended, and a second attempt would put another record under the same run id. A red one is read, written into the changelog and reported to whoever owns the cause.
+- A run can be red with no check failed: a leg that could not be brought up is named in the record's `missing`. It happened once in seventeen signed records, on a connection reset while a release's own bring-up copied an image.
 - `main` can move without this line of work: fleet-wide changes land here too. Read `git log origin/main` before assuming where it is, and add the changelog entry if a change arrived without one.
 - `main` refuses a force-push and a deletion (ruleset `protect-main`). A mistake there is fixed by a new commit.
 - A check can pass without having checked. The first version of `scripts/stranger.sh` did, in five ways the changelog lists: it took a rule from the directory it was inspecting, it skipped names it did not know, and it read a copy that was never made as a copy that was refused. A check that inspects a directory takes none of its rules from that directory, and its control (the changed copy) is itself checked.
