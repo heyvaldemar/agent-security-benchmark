@@ -59,6 +59,31 @@ verdicts() {
   fi
 }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+# control_namespace NAME: the namespace this leg's control runs in, made new.
+# A leg before this one on the same cluster (the calibration runs two, one
+# after the other) leaves its own terminating for a few seconds after it
+# cleans up, and no pod can be made in a namespace that is going away: run
+# 44248529353 lost its control that way, four seconds after the leg before
+# it ended, and read it two minutes later as a control nobody heard. So the
+# old namespace has to be gone first, and one that cannot be made fails the
+# leg here, in words.
+control_namespace() {
+  local ns="$1" phase=""
+  for _ in $(seq 1 90); do
+    phase="$(kubectl get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null)" || break
+    [ "$phase" = Terminating ] || break
+    sleep 2
+  done
+  if [ "$phase" = Terminating ]; then
+    fail "the namespace $ns left by the leg before is still terminating after three minutes"
+    return 1
+  fi
+  if ! kubectl create namespace "$ns" >/dev/null 2>&1 && ! kubectl get namespace "$ns" >/dev/null 2>&1; then
+    fail "the namespace $ns for the control could not be made"
+    return 1
+  fi
+  kubectl label namespace "$ns" pod-security.kubernetes.io/enforce=restricted --overwrite >/dev/null
+}
 job_done() {
   for _ in $(seq 1 "${2:-240}"); do
     [ -n "$(kubectl -n agents get job "$1" -o jsonpath='{.status.succeeded}{.status.failed}' 2>/dev/null)" ] && return 0
@@ -149,8 +174,7 @@ done
 # --- 2 -----------------------------------------------------------------------
 step "2. the model answers the agents only, and the outside can hear"
 START="$(now)"
-kubectl create namespace e2e-control >/dev/null 2>&1
-kubectl label namespace e2e-control pod-security.kubernetes.io/enforce=restricted --overwrite >/dev/null
+control_namespace e2e-control
 kubectl -n e2e-control delete pod control --ignore-not-found --wait=true >/dev/null 2>&1
 # The control's path is made up for this run: a request on it is the
 # control's only if it also comes from the control pod's address, and the

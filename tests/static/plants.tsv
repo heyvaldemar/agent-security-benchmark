@@ -99,3 +99,8 @@
 "tests/static/gate_cases.py"	"    if not FAILS.search(first):\n"	"    if False:\n"	"gate"	"a gate that cannot fail passes"
 "scripts/stranger.sh"	"  if [ \"$rc\" -eq 0 ]; then\n"	"  if false; then\n"	"stranger"	"a stranger's check that does not mind a changed copy being accepted, so a verifier that accepts anything passes"
 "scripts/stranger.sh"	"  elif [ \"${said#*\"$CHANGED\"}\" = \"$said\" ]; then\n"	"  elif false; then\n"	"stranger"	"a cosign that failed for a reason of its own counts as a cosign that refused the changed copy"
+"tests/e2e/sandbox.sh"	"    [ \"$phase\" = Terminating ] || break\n"	"    break\n"	"verdicts"	"a control's namespace made while the one before it is still terminating"
+"tests/e2e/sandbox.sh"	"    fail \"the namespace $ns for the control could not be made\"\n"	"    :\n"	"verdicts"	"a control's namespace that could not be made, and a leg that says nothing of it"
+"tests/e2e/sandbox.sh"	"control_namespace e2e-control\n"	"kubectl create namespace e2e-control >/dev/null 2>&1\n"	"verdicts"	"the sandbox leg makes its control's namespace the old way, without waiting or looking"
+"tests/e2e/cypress.sh"	"control_namespace \"$CONTROL_NS\"\n"	"kubectl create namespace \"$CONTROL_NS\" >/dev/null 2>&1\n"	"verdicts"	"the Cypress leg makes its control's namespace the old way, without waiting or looking"
+"tests/e2e/cypress.sh"	"  if [ \"$phase\" = Terminating ]; then\n"	"  if false; then\n"	"verdicts"	"a namespace that never finishes terminating is made over"

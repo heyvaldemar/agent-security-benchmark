@@ -85,6 +85,31 @@ verdicts() {
   fi
 }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+# control_namespace NAME: the namespace this leg's control runs in, made new.
+# A leg before this one on the same cluster (the calibration runs two, one
+# after the other) leaves its own terminating for a few seconds after it
+# cleans up, and no pod can be made in a namespace that is going away: run
+# 44248529353 lost its control that way, four seconds after the leg before
+# it ended, and read it two minutes later as a control nobody heard. So the
+# old namespace has to be gone first, and one that cannot be made fails the
+# leg here, in words.
+control_namespace() {
+  local ns="$1" phase=""
+  for _ in $(seq 1 90); do
+    phase="$(kubectl get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null)" || break
+    [ "$phase" = Terminating ] || break
+    sleep 2
+  done
+  if [ "$phase" = Terminating ]; then
+    fail "the namespace $ns left by the leg before is still terminating after three minutes"
+    return 1
+  fi
+  if ! kubectl create namespace "$ns" >/dev/null 2>&1 && ! kubectl get namespace "$ns" >/dev/null 2>&1; then
+    fail "the namespace $ns for the control could not be made"
+    return 1
+  fi
+  kubectl label namespace "$ns" pod-security.kubernetes.io/enforce=restricted --overwrite >/dev/null
+}
 # The release's model leg deletes its control's namespace without waiting,
 # and makes it again at its next start: the next call waits for it to be gone.
 gone() {
@@ -110,8 +135,7 @@ START="$(now)"
 # what the outside heard from each triage's pod by that pod's address over
 # the collector's whole life. A pod that stays up keeps its address, so no
 # triage's pod is ever given it.
-kubectl create namespace "$CONTROL_NS" >/dev/null 2>&1
-kubectl label namespace "$CONTROL_NS" pod-security.kubernetes.io/enforce=restricted --overwrite >/dev/null
+control_namespace "$CONTROL_NS"
 # The control's path is made up for this run: a request on it is the
 # control's only if it also comes from the control pod's address, and the
 # reader is told both (control.json). A model cannot know the path, and

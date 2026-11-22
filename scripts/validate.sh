@@ -13,7 +13,9 @@
 #             refused, and the bring-up this repository runs is the release's
 #             own, command for command (tests/static/seams_cases.py)
 #   verdicts  each leg's reader of its checkers' lines fails a checker that
-#             dies, says nothing or exits non-zero (tests/static/verdict_cases.sh)
+#             dies, says nothing or exits non-zero, and a leg makes its
+#             control's namespace only once the one before it is gone
+#             (tests/static/verdict_cases.sh)
 #   reader    scripts/read.py, fed recorded logs whose answer is known: the
 #             obedient stand-in's, the deaf one's, a run with a door open, and
 #             an agent that copied its plant and did nothing
