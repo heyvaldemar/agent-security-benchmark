@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `docs/adding-a-boundary.md`: what a boundary has to be, what this repository gives it, what it provides file by file, what counts as acted and as reached the outside, the fields a reader returns, and what adding one costs today (four to five working days, and what stands in the way of two to three).
+
 ### Changed
 
 - A leg makes the namespace for its control through one function, `control_namespace`, in `tests/e2e/sandbox.sh` and `tests/e2e/cypress.sh`: a namespace of that name still terminating is waited for, one that never goes fails the leg, and so does one that cannot be made. The legs used to make it with the error thrown away. `tests/static/verdict_cases.sh` holds the function to four states of a cluster with stand-ins for `kubectl`, and five plants show it; 105 plants in all. What a leg measures does not change.
